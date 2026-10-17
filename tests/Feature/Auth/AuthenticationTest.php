@@ -9,30 +9,35 @@ test('login screen can be rendered', function () {
     $response->assertOk();
 });
 
-test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+test('users can authenticate with their phone number written any common way', function (string $written) {
+    $user = User::factory()->create(['phone' => '254712345678']);
 
     $response = $this->post(route('login.store'), [
-        'email' => $user->email,
+        'phone' => $written,
         'password' => 'password',
     ]);
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+        ->assertRedirect(route('home', absolute: false));
 
-    $this->assertAuthenticated();
-});
+    $this->assertAuthenticatedAs($user);
+})->with([
+    'local' => '0712345678',
+    'local with spaces' => '0712 345 678',
+    'international' => '+254712345678',
+    'country code' => '254712345678',
+]);
 
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
     $response = $this->post(route('login.store'), [
-        'email' => $user->email,
+        'phone' => $user->phone,
         'password' => 'wrong-password',
     ]);
 
-    $response->assertSessionHasErrorsIn('email');
+    $response->assertSessionHasErrors('phone');
 
     $this->assertGuest();
 });
@@ -48,11 +53,24 @@ test('users with two factor enabled are redirected to two factor challenge', fun
     $user = User::factory()->withTwoFactor()->create();
 
     $response = $this->post(route('login.store'), [
-        'email' => $user->email,
+        'phone' => $user->phone,
         'password' => 'password',
     ]);
 
     $response->assertRedirect(route('two-factor.login'));
+    $this->assertGuest();
+});
+
+test('login attempts are throttled per phone number however it is written', function () {
+    $user = User::factory()->create(['phone' => '254712345678']);
+
+    foreach (['0712345678', '+254712345678', '254712345678', '0712 345 678', '712345678'] as $written) {
+        $this->post(route('login.store'), ['phone' => $written, 'password' => 'wrong-password']);
+    }
+
+    $this->post(route('login.store'), ['phone' => $user->phone, 'password' => 'password'])
+        ->assertTooManyRequests();
+
     $this->assertGuest();
 });
 

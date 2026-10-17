@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Accounts\Sms\LogSmsSender;
+use App\Accounts\Sms\SmsSender;
+use App\Accounts\Sms\TextSmsSender;
 use App\Enums\AdminPermission;
 use App\Enums\AdminRole;
 use App\Models\Admin;
@@ -31,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(SmsSender::class, fn (Application $app): SmsSender => config('services.sms.driver') === 'log'
+            ? $app->make(LogSmsSender::class)
+            : $app->make(TextSmsSender::class));
+
         $this->app->bind(CreditBudget::class, fn (): CreditBudget => new CreditBudget(
             monthlyCap: (int) config('sportsbook.odds_api.monthly_credit_cap'),
             reserve: (int) config('sportsbook.odds_api.credit_reserve'),

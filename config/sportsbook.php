@@ -21,6 +21,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Phone Codes
+    |--------------------------------------------------------------------------
+    |
+    | SMS codes for sign-up, password reset and changing number. Every SMS
+    | costs money, so sends are capped per number and per IP address.
+    |
+    */
+
+    'phone_codes' => [
+        'length' => 6,
+        'ttl_minutes' => 10,
+        'max_attempts' => 5,
+        'resend_seconds' => 60,
+        'sends_per_hour_phone' => 5,
+        'sends_per_hour_ip' => 20,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Admin Panel
     |--------------------------------------------------------------------------
     |

@@ -8,7 +8,7 @@ test('seeds a player and one admin per role, and can be run again without duplic
     $this->seed(LocalTestUsersSeeder::class);
     $this->seed(LocalTestUsersSeeder::class);
 
-    expect(User::where('email', 'player@sportsbook.test')->count())->toBe(1)
+    expect(User::where('phone', LocalTestUsersSeeder::PLAYER_PHONE)->count())->toBe(1)
         ->and(Admin::count())->toBe(7)
         ->and(Admin::firstWhere('email', 'superadmin@sportsbook.test')->getRoleNames()->all())->toBe(['super-admin'])
         ->and(Admin::firstWhere('email', 'inactive@sportsbook.test')->is_active)->toBeFalse()

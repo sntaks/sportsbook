@@ -41,6 +41,11 @@ return [
         'base_url' => env('ODDS_API_BASE_URL', 'https://api.the-odds-api.com/v4'),
     ],
 
+    // Which SMS sender to use: "textsms", or "log" (writes messages to the log; local development only).
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'textsms'),
+    ],
+
     // TextSMS (sms.textsms.co.ke): phone verification codes and notifications. The API key lives in .env only.
     'textsms' => [
         'url' => env('TEXTSMS_URL', 'https://sms.textsms.co.ke/api/services/sendsms/'),

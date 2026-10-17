@@ -1,5 +1,6 @@
 <?php
 
+use App\Accounts\Sms\SmsSender;
 use App\Models\Competition;
 use App\Models\Fixture;
 use App\Models\Market;
@@ -52,6 +53,44 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Swap the SMS sender for one that records every message instead of sending it. Pass false to make every send fail.
+ */
+function fakeSms(bool $accepts = true): FakeSmsSender
+{
+    $sender = new FakeSmsSender($accepts);
+    app()->instance(SmsSender::class, $sender);
+
+    return $sender;
+}
+
+class FakeSmsSender implements SmsSender
+{
+    /** @var list<array{phone: string, message: string}> */
+    public array $sent = [];
+
+    public function __construct(private bool $accepts = true) {}
+
+    public function send(string $phone, string $message): bool
+    {
+        $this->sent[] = ['phone' => $phone, 'message' => $message];
+
+        return $this->accepts;
+    }
+
+    /**
+     * The code in the latest message sent to a number.
+     */
+    public function lastCodeFor(string $phone): string
+    {
+        $message = collect($this->sent)->where('phone', $phone)->last()['message'] ?? '';
+
+        preg_match('/\b(\d{6})\b/', $message, $matches);
+
+        return $matches[1] ?? throw new RuntimeException("No code was sent to {$phone}.");
+    }
 }
 
 /**

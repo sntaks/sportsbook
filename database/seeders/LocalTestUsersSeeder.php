@@ -24,6 +24,11 @@ class LocalTestUsersSeeder extends Seeder
 
     public const PASSWORD = 'password';
 
+    /**
+     * The seeded player logs in with this number (0700 000 001).
+     */
+    public const PLAYER_PHONE = '254700000001';
+
     public function run(): void
     {
         if (app()->isProduction()) {
@@ -32,10 +37,13 @@ class LocalTestUsersSeeder extends Seeder
 
         $this->call(AdminRoleSeeder::class);
 
+        // Keyed on the email so a player seeded before phone sign-up existed gets the number added.
         User::updateOrCreate(['email' => 'player@sportsbook.test'], [
+            'phone' => self::PLAYER_PHONE,
             'name' => 'Test Player',
             'password' => self::PASSWORD,
-            'email_verified_at' => now(),
+            'phone_verified_at' => now(),
+            'adult_confirmed_at' => now(),
         ]);
 
         $admins = [

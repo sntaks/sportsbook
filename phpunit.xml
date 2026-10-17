@@ -22,6 +22,7 @@
         <env name="ADMIN_DOMAIN" value="admin.sportsbook.test"/>
         <env name="ODDS_API_KEY" value=""/>
         <env name="ODDS_API_DRIVER" value="replay"/>
+        <env name="SMS_DRIVER" value="log"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

@@ -4,9 +4,9 @@ use App\Models\User;
 use Livewire\Livewire;
 
 test('profile page is displayed', function () {
-    $this->actingAs($user = User::factory()->create());
+    $this->actingAs($user = User::factory()->create(['phone' => '254712345678']));
 
-    $this->get(route('profile.edit'))->assertOk();
+    $this->get(route('profile.edit'))->assertOk()->assertSee('0712 *** 678');
 });
 
 test('profile information can be updated', function () {
@@ -26,6 +26,23 @@ test('profile information can be updated', function () {
     expect($user->name)->toEqual('Test User');
     expect($user->email)->toEqual('test@example.com');
     expect($user->email_verified_at)->toBeNull();
+});
+
+test('name and email are optional and clearing them stores nothing', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::settings.profile')
+        ->set('name', '')
+        ->set('email', '')
+        ->call('updateProfileInformation')
+        ->assertHasNoErrors();
+
+    $user->refresh();
+
+    expect($user->name)->toBeNull()
+        ->and($user->email)->toBeNull();
 });
 
 test('email verification status is unchanged when email address is unchanged', function () {
