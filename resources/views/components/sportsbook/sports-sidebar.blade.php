@@ -1,0 +1,34 @@
+{{-- A sticky column on desktop; a slide-in drawer on smaller screens. --}}
+<div
+    x-cloak
+    x-show="sportsOpen"
+    x-transition.opacity
+    x-on:click="sportsOpen = false"
+    class="fixed inset-0 z-40 bg-black/70 lg:hidden"
+    aria-hidden="true"
+></div>
+
+<aside
+    aria-label="{{ __('Sports and competitions') }}"
+    x-on:keydown.escape.window="sportsOpen = false"
+    :class="sportsOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'"
+    class="fixed inset-y-0 left-0 z-50 w-72 shrink-0 -translate-x-full overflow-y-auto border-r border-ink-700 bg-ink-900 transition-transform duration-200
+           lg:sticky lg:top-[4.5rem] lg:z-auto lg:mt-4 lg:h-[calc(100vh-5.5rem)] lg:w-60 lg:translate-x-0 lg:rounded-2xl lg:border lg:transition-none"
+>
+    <div class="flex items-center justify-between border-b border-ink-700 px-4 py-3">
+        <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-smoke">{{ __('Sports') }}</h2>
+        <button
+            type="button"
+            class="flex size-10 items-center justify-center rounded-md text-smoke hover:text-ivory lg:hidden"
+            x-on:click="sportsOpen = false"
+            aria-label="{{ __('Close sports menu') }}"
+        >
+            <flux:icon.x-mark class="size-5" />
+        </button>
+    </div>
+
+    <div class="px-4 py-6 text-sm text-smoke">
+        <flux:icon.trophy class="mb-3 size-6 text-gold-dim" />
+        <p>{{ __('Competitions will be listed here as soon as fixtures are loaded.') }}</p>
+    </div>
+</aside>

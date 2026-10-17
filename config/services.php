@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    // The Odds API (the-odds-api.com): fixtures and bookmaker prices. Budget settings live in config/sportsbook.php.
+    'odds_api' => [
+        'key' => env('ODDS_API_KEY'),
+        'base_url' => env('ODDS_API_BASE_URL', 'https://api.the-odds-api.com/v4'),
+    ],
+
+    // TextSMS (sms.textsms.co.ke): phone verification codes and notifications. The API key lives in .env only.
+    'textsms' => [
+        'url' => env('TEXTSMS_URL', 'https://sms.textsms.co.ke/api/services/sendsms/'),
+        'api_key' => env('TEXTSMS_API_KEY'),
+        'partner_id' => env('TEXTSMS_PARTNER_ID'),
+        'shortcode' => env('TEXTSMS_SHORTCODE', 'TextSMS'),
+    ],
+
 ];
