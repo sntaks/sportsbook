@@ -31,6 +31,8 @@ class ActivityResource extends Resource
 
     protected static ?string $modelLabel = 'activity';
 
+    protected static ?string $pluralModelLabel = 'activity log';
+
     protected static ?string $recordTitleAttribute = 'description';
 
     public static function infolist(Schema $schema): Schema

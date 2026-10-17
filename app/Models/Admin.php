@@ -75,6 +75,7 @@ class Admin extends Authenticatable implements FilamentUser, HasAppAuthenticatio
             ->useLogName('admin')
             ->logOnly(['name', 'email', 'is_active'])
             ->logOnlyDirty()
-            ->dontLogEmptyChanges();
+            ->dontLogEmptyChanges()
+            ->setDescriptionForEvent(fn (string $eventName): string => "Admin account {$eventName}");
     }
 }
