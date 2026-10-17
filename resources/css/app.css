@@ -8,8 +8,35 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Design tokens. Ported from Kadi Kings ("The King's Table") with sportsbook colour roles:
+ *   gold  = brand, primary actions, selected odds
+ *   win   = won bets, odds drifting up, positive states
+ *   live  = live badges, lost bets, odds shortening
+ * Never hard-code a hex value in a template; use these tokens.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Cinzel', ui-serif, Georgia, serif;
+
+    --color-ink-950: #0a0a0a;
+    --color-ink-900: #111111;
+    --color-ink-800: #1a1a1a;
+    --color-ink-700: #232323;
+    --color-ink-600: #2e2e2e;
+    --color-ink-500: #3d3d3d;
+
+    --color-ivory: #f5f5f0;
+    --color-smoke: #9b9b96;
+    --color-smoke-dim: #757571;
+
+    --color-gold: #f5c542;
+    --color-gold-bright: #ffde74;
+    --color-gold-dim: #c9a84c;
+
+    --color-win: #32c850;
+    --color-win-deep: #1a7a1a;
+    --color-live: #ef4444;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -23,16 +50,16 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
-    --color-accent-foreground: var(--color-white);
+    --color-accent: #f5c542;
+    --color-accent-content: #f5c542;
+    --color-accent-foreground: #0a0a0a;
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: #f5c542;
+        --color-accent-content: #f5c542;
+        --color-accent-foreground: #0a0a0a;
     }
 }
 
@@ -44,6 +71,11 @@
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-gold);
+        outline-offset: 2px;
     }
 }
 
@@ -61,6 +93,97 @@ select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
 }
 
-/* \[:where(&)\]:size-4 {
-    @apply size-4;
-} */
+/* ─── Surfaces ─────────────────────────────────────────── */
+@utility glass-card {
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid rgb(245 197 66 / 0.15);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* ─── Odds buttons ─────────────────────────────────────── */
+/*
+ * Usage: <button class="odds-btn" aria-pressed="false" data-movement="up|down">
+ *            <span class="odds-btn-label">1</span><span class="odds-btn-price">2.10</span>
+ *        </button>
+ * Suspended selections use the disabled attribute.
+ */
+@utility odds-btn {
+    display: flex;
+    min-height: 44px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border-radius: 8px;
+    border: 1px solid var(--color-ink-600);
+    background: var(--color-ink-800);
+    color: var(--color-ivory);
+    padding: 4px 8px;
+    transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        border-color: rgb(245 197 66 / 0.5);
+        background: var(--color-ink-700);
+    }
+
+    &[aria-pressed='true'] {
+        border-color: var(--color-gold);
+        background: var(--color-gold);
+        color: var(--color-ink-950);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+}
+
+@utility odds-btn-label {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    color: var(--color-smoke);
+
+    [aria-pressed='true'] > & {
+        color: rgb(10 10 10 / 0.75);
+    }
+}
+
+@utility odds-btn-price {
+    font-size: 0.9375rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+
+    [data-movement='up'] > &::after {
+        content: ' ▲';
+        font-size: 0.625rem;
+        color: var(--color-win);
+    }
+
+    [data-movement='down'] > &::after {
+        content: ' ▼';
+        font-size: 0.625rem;
+        color: var(--color-live);
+    }
+}
+
+/* ─── Misc ─────────────────────────────────────────────── */
+@utility scrollbar-none {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
