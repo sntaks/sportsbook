@@ -2,15 +2,20 @@
 
 namespace App\Providers;
 
-use App\Actions\Fortify\CreateNewUser;
-use App\Actions\Fortify\ResetUserPassword;
+use App\Models\User;
+use App\Support\PhoneNumber;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Laravel\Fortify\Fortify;
 
+/**
+ * Fortify handles login, 2FA, passkeys and password confirmation. Sign-up and password reset are
+ * SMS-code flows of our own (app/Accounts), so Fortify's registration, email reset and email
+ * verification features are switched off in config/fortify.php.
+ */
 class FortifyServiceProvider extends ServiceProvider
 {
     /**
@@ -26,18 +31,24 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->configureActions();
+        $this->configureAuthentication();
         $this->configureViews();
         $this->configureRateLimiting();
     }
 
     /**
-     * Configure Fortify actions.
+     * Players log in with their phone number in any common format: 0712…, +254712… or 254712….
      */
-    private function configureActions(): void
+    private function configureAuthentication(): void
     {
-        Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
-        Fortify::createUsersUsing(CreateNewUser::class);
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $phone = PhoneNumber::normalize($request->string(Fortify::username())->toString());
+            $user = $phone === null ? null : User::query()->where('phone', $phone)->first();
+
+            return $user !== null && Hash::check($request->string('password')->toString(), $user->password)
+                ? $user
+                : null;
+        });
     }
 
     /**
@@ -46,12 +57,8 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureViews(): void
     {
         Fortify::loginView(fn () => view('pages::auth.login'));
-        Fortify::verifyEmailView(fn () => view('pages::auth.verify-email'));
         Fortify::twoFactorChallengeView(fn () => view('pages::auth.two-factor-challenge'));
         Fortify::confirmPasswordView(fn () => view('pages::auth.confirm-password'));
-        Fortify::registerView(fn () => view('pages::auth.register'));
-        Fortify::resetPasswordView(fn () => view('pages::auth.reset-password'));
-        Fortify::requestPasswordResetLinkView(fn () => view('pages::auth.forgot-password'));
     }
 
     /**
@@ -64,9 +71,9 @@ class FortifyServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('login', function (Request $request) {
-            $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
+            $phone = PhoneNumber::normalize($request->string(Fortify::username())->toString());
 
-            return Limit::perMinute(5)->by($throttleKey);
+            return Limit::perMinute(5)->by($phone.'|'.$request->ip());
         });
 
         RateLimiter::for('passkeys', function (Request $request) {

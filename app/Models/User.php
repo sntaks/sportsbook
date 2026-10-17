@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,8 +18,11 @@ use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property int $id
- * @property string $name
- * @property string $email
+ * @property string|null $phone
+ * @property Carbon|null $phone_verified_at
+ * @property Carbon|null $adult_confirmed_at
+ * @property string|null $name
+ * @property string|null $email
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -29,9 +32,9 @@ use Laravel\Sanctum\HasApiTokens;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['phone', 'name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -44,17 +47,31 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     protected function casts(): array
     {
         return [
+            'phone_verified_at' => 'datetime',
+            'adult_confirmed_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
 
     /**
-     * Get the user's initials
+     * The name to show the player: their name if they gave one, otherwise their masked number.
+     */
+    public function displayName(): string
+    {
+        return filled($this->name) ? (string) $this->name : PhoneNumber::mask($this->phone);
+    }
+
+    /**
+     * Get the user's initials, or the last two digits of their number when they have no name.
      */
     public function initials(): string
     {
-        $initials = Str::initials($this->name, true);
+        if (blank($this->name)) {
+            return substr((string) $this->phone, -2);
+        }
+
+        $initials = Str::initials((string) $this->name, true);
 
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)

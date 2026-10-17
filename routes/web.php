@@ -26,12 +26,14 @@ Route::view('terms', 'sportsbook.legal', ['title' => 'Terms & Conditions'])->nam
 Route::view('privacy', 'sportsbook.legal', ['title' => 'Privacy Policy'])->name('privacy');
 Route::view('responsible-gambling', 'sportsbook.legal', ['title' => 'Responsible Gambling'])->name('responsible-gambling');
 
-Route::middleware(['auth'])->group(function () {
-    Route::livewire('my-bets', 'pages::sportsbook.my-bets')->name('my-bets');
+// Sign-up and password reset use SMS codes (app/Accounts), so they replace Fortify's email-based screens.
+Route::middleware(['guest'])->group(function () {
+    Route::livewire('register', 'pages::auth.register')->name('register');
+    Route::livewire('forgot-password', 'pages::auth.forgot-password')->name('password.request');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::view('dashboard', 'dashboard')->name('dashboard');
+Route::middleware(['auth'])->group(function () {
+    Route::livewire('my-bets', 'pages::sportsbook.my-bets')->name('my-bets');
 });
 
 require __DIR__.'/settings.php';

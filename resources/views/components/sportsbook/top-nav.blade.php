@@ -23,7 +23,7 @@
                 <flux:dropdown position="bottom" align="end">
                     <button type="button" class="flex items-center gap-2 rounded-full border border-ink-600 py-1 pl-1 pr-3 text-sm text-ivory hover:border-gold/40">
                         <span class="flex size-7 items-center justify-center rounded-full bg-gold/15 text-xs font-semibold text-gold">{{ auth()->user()->initials() }}</span>
-                        <span class="hidden sm:inline">{{ auth()->user()->name }}</span>
+                        <span class="hidden sm:inline">{{ auth()->user()->displayName() }}</span>
                     </button>
 
                     <flux:menu>

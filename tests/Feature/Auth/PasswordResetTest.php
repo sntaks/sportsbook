@@ -1,65 +1,88 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Support\Facades\Notification;
-use Laravel\Fortify\Features;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Livewire\Livewire;
 
-beforeEach(function () {
-    $this->skipUnlessFortifyHas(Features::resetPasswords());
+test('forgot password screen can be rendered', function () {
+    $this->get(route('password.request'))->assertOk()->assertSee('Phone number');
 });
 
-test('reset password link screen can be rendered', function () {
-    $response = $this->get(route('password.request'));
+test('a reset code is texted to a number with an account', function () {
+    $sms = fakeSms();
+    User::factory()->create(['phone' => '254712345678']);
 
-    $response->assertOk();
+    Livewire::test('pages::auth.forgot-password')
+        ->set('phone', '0712345678')
+        ->call('sendCode')
+        ->assertHasNoErrors()
+        ->assertSet('pendingPhone', '254712345678');
+
+    expect($sms->sent)->toHaveCount(1);
 });
 
-test('reset password link can be requested', function () {
-    Notification::fake();
+test('a number with no account gets the same answer but no SMS', function () {
+    $sms = fakeSms();
 
-    $user = User::factory()->create();
+    Livewire::test('pages::auth.forgot-password')
+        ->set('phone', '0712345678')
+        ->call('sendCode')
+        ->assertHasNoErrors()
+        ->assertSet('pendingPhone', '254712345678');
 
-    $this->post(route('password.request'), ['email' => $user->email]);
-
-    Notification::assertSentTo($user, ResetPassword::class);
+    expect($sms->sent)->toBeEmpty();
 });
 
-test('reset password screen can be rendered', function () {
-    Notification::fake();
+test('the right code sets the new password and signs out everywhere else', function () {
+    $sms = fakeSms();
+    $user = User::factory()->create(['phone' => '254712345678', 'remember_token' => 'old-remember-token']);
+    $user->createToken('android');
+    config(['session.driver' => 'database']);
+    DB::table('sessions')->insert(['id' => 'other-session', 'user_id' => $user->id, 'payload' => '', 'last_activity' => now()->timestamp]);
 
-    $user = User::factory()->create();
+    Livewire::test('pages::auth.forgot-password')
+        ->set('phone', '0712345678')
+        ->call('sendCode')
+        ->set('code', $sms->lastCodeFor('254712345678'))
+        ->set('password', 'new-password')
+        ->set('password_confirmation', 'new-password')
+        ->call('resetPassword')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('login'));
 
-    $this->post(route('password.request'), ['email' => $user->email]);
+    $user->refresh();
 
-    Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
-        $response = $this->get(route('password.reset', $notification->token));
-
-        $response->assertOk();
-
-        return true;
-    });
+    expect(Hash::check('new-password', $user->password))->toBeTrue()
+        ->and($user->remember_token)->not->toBe('old-remember-token')
+        ->and($user->tokens()->count())->toBe(0);
+    $this->assertDatabaseMissing('sessions', ['id' => 'other-session']);
+    $this->assertGuest();
 });
 
-test('password can be reset with valid token', function () {
-    Notification::fake();
+test('a wrong code leaves the password unchanged', function () {
+    $sms = fakeSms();
+    $user = User::factory()->create(['phone' => '254712345678']);
 
-    $user = User::factory()->create();
+    $component = Livewire::test('pages::auth.forgot-password')
+        ->set('phone', '0712345678')
+        ->call('sendCode');
+    $wrong = $sms->lastCodeFor('254712345678') === '000000' ? '111111' : '000000';
 
-    $this->post(route('password.request'), ['email' => $user->email]);
+    $component->set('code', $wrong)
+        ->set('password', 'new-password')
+        ->set('password_confirmation', 'new-password')
+        ->call('resetPassword')
+        ->assertHasErrors(['code' => 'That code is not correct.']);
 
-    Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
-        $response = $this->post(route('password.update'), [
-            'token' => $notification->token,
-            'email' => $user->email,
-            'password' => 'password',
-            'password_confirmation' => 'password',
-        ]);
+    expect(Hash::check('password', $user->fresh()->password))->toBeTrue();
+});
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect(route('login', absolute: false));
+test('rejects numbers that are not Kenyan mobiles', function () {
+    fakeSms();
 
-        return true;
-    });
+    Livewire::test('pages::auth.forgot-password')
+        ->set('phone', '12345')
+        ->call('sendCode')
+        ->assertHasErrors(['phone' => 'Enter a valid Kenyan mobile number.']);
 });
