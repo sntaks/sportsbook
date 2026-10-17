@@ -13,8 +13,9 @@
             {{ __('Promos') }}
         </a>
         <button type="button" x-on:click="betSlipOpen = true" aria-controls="bet-slip" class="{{ $itemClasses }} text-smoke">
-            <span class="flex size-9 items-center justify-center rounded-full bg-gold text-ink-950">
+            <span class="relative flex size-9 items-center justify-center rounded-full bg-gold text-ink-950">
                 <flux:icon.ticket class="size-5" />
+                <span x-cloak x-show="$store.betslip.count() > 0" x-text="$store.betslip.count()" class="absolute -right-1.5 -top-1.5 flex min-w-5 items-center justify-center rounded-full bg-live px-1 text-[0.6875rem] font-bold leading-5 text-ivory"></span>
             </span>
             {{ __('Betslip') }}
         </button>

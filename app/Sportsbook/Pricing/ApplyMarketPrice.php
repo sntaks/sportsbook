@@ -2,12 +2,12 @@
 
 namespace App\Sportsbook\Pricing;
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
 use App\Enums\MarketType;
 use App\Enums\SuspensionReason;
 use App\Models\Fixture;
 use App\Models\Market;
-use App\Models\OddsSnapshot;
 
 /**
  * Writes a priced market to a fixture: feed prices, fair probabilities, a history snapshot whenever the offered
@@ -29,6 +29,7 @@ class ApplyMarketPrice
         PricedMarket $priced,
         array $selectionNames,
         bool $createWhenUnpriced,
+        MarketSource $source = MarketSource::Feed,
     ): ?Market {
         $key = Market::keyFor($type, $line);
         $market = $fixture->markets()->where('key', $key)->first();
@@ -37,11 +38,18 @@ class ApplyMarketPrice
             return null;
         }
 
+        // A line owned by the other source (e.g. a derived Over 2.5 the feed now prices too thinly) is left alone
+        // unless this source can actually price it.
+        if ($market !== null && $market->source !== $source && ! $priced->isPriced()) {
+            return $market;
+        }
+
         $market ??= new Market([
             'fixture_id' => $fixture->id,
             'type' => $type,
             'line' => $line,
             'key' => $key,
+            'source' => $source,
             'status' => MarketStatus::Suspended,
         ]);
 
@@ -59,6 +67,8 @@ class ApplyMarketPrice
         }
 
         $isNew = ! $market->exists;
+        // Feed prices take over a line we had been deriving; DeriveMarkets never replaces a feed-owned line.
+        $market->source = $source;
         $market->priced_at = now();
         $market->save();
 
@@ -85,17 +95,7 @@ class ApplyMarketPrice
             'feed_price' => $price['price'],
         ])->save();
 
-        $selection->refresh();
-
-        if ($selection->price() !== $offeredBefore) {
-            OddsSnapshot::create([
-                'selection_id' => $selection->id,
-                'price' => $selection->price(),
-                'fair_probability' => $selection->fair_probability,
-                'source' => $selection->hasOverride() ? 'override' : 'feed',
-                'captured_at' => now(),
-            ]);
-        }
+        $selection->refresh()->recordOfferedPriceChange($offeredBefore);
     }
 
     private function updateStatus(Market $market, Fixture $fixture, bool $isNew): void

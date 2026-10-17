@@ -78,6 +78,22 @@ class Fixture extends Model
         return "{$this->home_team} v {$this->away_team}";
     }
 
+    /**
+     * Kick-off in Nairobi time, e.g. "Today 17:00", "Tomorrow 20:45" or "Sat 18 Oct 14:00".
+     */
+    public function kickoffLabel(): string
+    {
+        $timezone = (string) config('sportsbook.timezone');
+        $kickoff = $this->kicks_off_at->setTimezone($timezone);
+        $today = now($timezone);
+
+        return match (true) {
+            $kickoff->isSameDay($today) => __('Today').' '.$kickoff->format('H:i'),
+            $kickoff->isSameDay($today->addDay()) => __('Tomorrow').' '.$kickoff->format('H:i'),
+            default => $kickoff->format('D j M H:i'),
+        };
+    }
+
     public function hasKickedOff(): bool
     {
         return $this->kicks_off_at->isPast();

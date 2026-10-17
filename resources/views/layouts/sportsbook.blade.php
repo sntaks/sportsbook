@@ -2,6 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         @include('partials.head')
+        <script>window.sportsbook = @js(['maxSelections' => (int) config('sportsbook.limits.max_selections')]);</script>
     </head>
     <body class="min-h-screen bg-ink-950 font-sans text-ivory antialiased" x-data="{ sportsOpen: false, betSlipOpen: false }">
         <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-gold focus:px-4 focus:py-2 focus:text-ink-950">
@@ -17,7 +18,9 @@
                 {{ $slot }}
             </main>
 
-            <x-sportsbook.bet-slip />
+            @persist('bet-slip')
+                <x-sportsbook.bet-slip />
+            @endpersist
         </div>
 
         <x-sportsbook.site-footer />

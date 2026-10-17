@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
 use App\Enums\MarketType;
 use App\Enums\SuspensionReason;
@@ -42,14 +43,24 @@ test('prices 1X2 from the median bookmaker after margins and opens the market', 
         ->and(OddsSnapshot::whereIn('selection_id', $market->selections()->select('id'))->count())->toBe(3);
 });
 
-test('creates a goal line market only when enough bookmakers price it', function () {
+test('takes a goal line from the feed only when enough bookmakers price it, leaving thin lines to the model', function () {
     syncEplOdds($this->competition);
 
     $fixture = Fixture::firstWhere('external_id', 'evt-arsenal-spurs');
     $twoAndAHalf = $fixture->markets()->where('key', 'totals:2.5')->sole();
     expect(offeredPrices($twoAndAHalf))->toBe(['Over 2.5' => '1.88', 'Under 2.5' => '1.88'])
         ->and($twoAndAHalf->status)->toBe(MarketStatus::Open)
-        ->and($fixture->markets()->where('key', 'totals:3.5')->exists())->toBeFalse();
+        ->and($twoAndAHalf->source)->toBe(MarketSource::Feed)
+        ->and($fixture->markets()->where('key', 'totals:3.5')->sole()->source)->toBe(MarketSource::Derived);
+});
+
+test('keeps a thinly priced feed goal line with the model on later syncs', function () {
+    syncEplOdds($this->competition);
+    syncEplOdds($this->competition);
+
+    $threeAndAHalf = Fixture::firstWhere('external_id', 'evt-arsenal-spurs')->markets()->where('key', 'totals:3.5')->sole();
+    expect($threeAndAHalf->source)->toBe(MarketSource::Derived)
+        ->and($threeAndAHalf->status)->toBe(MarketStatus::Open);
 });
 
 test('suspends a 1X2 market that fewer than three bookmakers price', function () {
@@ -64,11 +75,12 @@ test('suspends a 1X2 market that fewer than three bookmakers price', function ()
 
 test('does not duplicate markets or price history when nothing changed', function () {
     syncEplOdds($this->competition);
+    $counts = [Fixture::count(), Market::count(), OddsSnapshot::count()];
+
     syncEplOdds($this->competition);
 
-    expect(Fixture::count())->toBe(2)
-        ->and(Market::count())->toBe(3)
-        ->and(OddsSnapshot::count())->toBe(5);
+    expect([Fixture::count(), Market::count(), OddsSnapshot::count()])->toBe($counts)
+        ->and($counts[1])->toBe(10);
 });
 
 test('keeps an admin override while the feed price underneath it updates', function () {

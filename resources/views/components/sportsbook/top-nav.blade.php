@@ -1,5 +1,5 @@
 <header class="sticky top-0 z-40 border-b border-ink-700 bg-ink-950/95 backdrop-blur">
-    <div class="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-4 px-4">
+    <div class="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-2 px-4 sm:gap-4">
         <button
             type="button"
             class="-ml-2 flex size-10 items-center justify-center rounded-md text-smoke hover:text-ivory lg:hidden"
@@ -9,13 +9,16 @@
             <flux:icon.bars-3 class="size-6" />
         </button>
 
-        <a href="{{ route('home') }}" wire:navigate class="font-display text-lg font-bold uppercase tracking-[0.12em] text-gold">
+        <a href="{{ route('home') }}" wire:navigate class="shrink-0 font-display text-base font-bold uppercase tracking-[0.08em] text-gold sm:text-lg sm:tracking-[0.12em]">
             {{ config('app.name') }}
         </a>
 
         <x-sportsbook.product-nav class="ml-4" />
 
-        <div class="ml-auto flex items-center gap-1 sm:gap-2">
+        <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+            <a href="{{ route('search') }}" wire:navigate class="hidden size-10 shrink-0 items-center justify-center rounded-full text-smoke hover:bg-ink-800 hover:text-ivory sm:flex" aria-label="{{ __('Search') }}">
+                <flux:icon.magnifying-glass class="size-5" />
+            </a>
             @auth
                 <flux:dropdown position="bottom" align="end">
                     <button type="button" class="flex items-center gap-2 rounded-full border border-ink-600 py-1 pl-1 pr-3 text-sm text-ivory hover:border-gold/40">
