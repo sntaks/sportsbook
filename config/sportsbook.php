@@ -73,6 +73,8 @@ return [
     'odds' => [
         'margin' => (float) env('SPORTSBOOK_ODDS_MARGIN', 0.06),
         'derived_market_margin' => (float) env('SPORTSBOOK_DERIVED_MARGIN', 0.10),
+        'minimum_bookmakers' => (int) env('SPORTSBOOK_MINIMUM_BOOKMAKERS', 3),
+        'stale_after_hours' => (int) env('SPORTSBOOK_ODDS_STALE_AFTER_HOURS', 26),
     ],
 
     /*
@@ -102,8 +104,25 @@ return [
     */
 
     'odds_api' => [
+        // "live" calls the API; "replay" serves recordings and never spends credits.
+        'driver' => env('ODDS_API_DRIVER', 'replay'),
+        'recordings_path' => database_path('odds-api-recordings'),
         'region' => env('ODDS_API_REGION', 'uk'),
+        // Comma-separated market keys pulled by the scheduled odds sync.
         'markets' => env('ODDS_API_MARKETS', 'h2h'),
+        // Odds are only bought for competitions with a fixture kicking off within this many days.
+        'lookahead_days' => (int) env('ODDS_API_LOOKAHEAD_DAYS', 7),
+        // Feed sport groups imported as sports, mapped to the name players see.
+        'sport_groups' => ['Soccer' => 'Football'],
+        // Competitions synced out of the box (CompetitionSeeder) and recorded for replay.
+        'default_competitions' => [
+            'soccer_epl',
+            'soccer_spain_la_liga',
+            'soccer_italy_serie_a',
+            'soccer_germany_bundesliga',
+            'soccer_france_ligue_one',
+            'soccer_uefa_champs_league',
+        ],
         'odds_format' => 'decimal',
         'monthly_credit_cap' => (int) env('ODDS_API_MONTHLY_CREDIT_CAP', 500),
         'credit_reserve' => (int) env('ODDS_API_CREDIT_RESERVE', 50),

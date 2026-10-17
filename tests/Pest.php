@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /*
@@ -47,4 +48,30 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Decode a recorded Odds API response from tests/Fixtures/odds-api.
+ *
+ * @return list<array<string, mixed>>
+ */
+function oddsApiFixture(string $name): array
+{
+    return json_decode(file_get_contents(__DIR__."/Fixtures/odds-api/{$name}.json"), true, flags: JSON_THROW_ON_ERROR);
+}
+
+/**
+ * Use the live Odds API driver against a fake host. Any request without a matching Http::fake() fails the test,
+ * so no test can ever reach the real API.
+ */
+function useLiveOddsApi(): void
+{
+    config([
+        'sportsbook.odds_api.driver' => 'live',
+        'sportsbook.odds_api.region' => 'uk',
+        'services.odds_api.key' => 'test-api-key',
+        'services.odds_api.base_url' => 'https://odds-api.test/v4',
+    ]);
+
+    Http::preventStrayRequests();
 }
