@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
 use App\Enums\MarketType;
 use App\Enums\SuspensionReason;
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property MarketType $type
  * @property string|null $line
  * @property string $key
+ * @property MarketSource $source
  * @property MarketStatus $status
  * @property SuspensionReason|null $suspension_reason
  * @property int $bookmaker_count
@@ -30,7 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['fixture_id', 'type', 'line', 'key', 'status', 'suspension_reason', 'bookmaker_count', 'priced_at'])]
+#[Fillable(['fixture_id', 'type', 'line', 'key', 'source', 'status', 'suspension_reason', 'bookmaker_count', 'priced_at'])]
 class Market extends Model
 {
     /** @use HasFactory<MarketFactory> */
@@ -46,6 +48,7 @@ class Market extends Model
         return [
             'type' => MarketType::class,
             'line' => 'decimal:2',
+            'source' => MarketSource::class,
             'status' => MarketStatus::class,
             'suspension_reason' => SuspensionReason::class,
             'priced_at' => 'datetime',
@@ -84,6 +87,11 @@ class Market extends Model
     public function name(): string
     {
         return $this->line === null ? $this->type->label() : $this->type->label().' '.rtrim(rtrim($this->line, '0'), '.');
+    }
+
+    public function isDerived(): bool
+    {
+        return $this->source === MarketSource::Derived;
     }
 
     public function isOpen(): bool

@@ -74,6 +74,13 @@ return [
         'margin' => (float) env('SPORTSBOOK_ODDS_MARGIN', 0.06),
         'derived_market_margin' => (float) env('SPORTSBOOK_DERIVED_MARGIN', 0.10),
         'minimum_bookmakers' => (int) env('SPORTSBOOK_MINIMUM_BOOKMAKERS', 3),
+        // Expected goals per match when a competition has no feed Over 2.5 prices to learn from. Recorded top-league
+        // prices implied about 2.75.
+        'default_total_goals' => (float) env('SPORTSBOOK_DEFAULT_TOTAL_GOALS', 2.7),
+        // Share of each team's goals expected in the first half, for half-time markets. UNVERIFIED rule of thumb.
+        'first_half_goal_share' => (float) env('SPORTSBOOK_FIRST_HALF_GOAL_SHARE', 0.45),
+        // Model-priced markets (e.g. correct score) never offer more than this.
+        'derived_maximum_price' => (float) env('SPORTSBOOK_DERIVED_MAXIMUM_PRICE', 500),
         'stale_after_hours' => (int) env('SPORTSBOOK_ODDS_STALE_AFTER_HOURS', 26),
     ],
 

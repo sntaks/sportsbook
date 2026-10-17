@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
+use App\Enums\MarketType;
 use App\Enums\SuspensionReason;
 use App\Models\Admin;
 use App\Models\Market;
@@ -18,4 +20,15 @@ test('suspends a market as a manual suspension and logs who did it and why', fun
         ->and($market->fresh()->suspension_reason)->toBe(SuspensionReason::Manual)
         ->and($activity->causer->is($admin))->toBeTrue()
         ->and($activity->properties->get('reason'))->toBe('Possible match fixing report');
+});
+
+test('suspending a 1X2 also suspends the markets derived from it', function () {
+    $matchResult = Market::factory()->create();
+    $derived = Market::factory()->for($matchResult->fixture)->create(['type' => MarketType::BothTeamsToScore, 'key' => 'btts', 'source' => MarketSource::Derived]);
+    $feedLine = Market::factory()->for($matchResult->fixture)->create(['type' => MarketType::Totals, 'line' => 2.5, 'key' => 'totals:2.5']);
+
+    app(SuspendMarket::class)->handle($matchResult, Admin::factory()->create(), 'Late team news');
+
+    expect($derived->fresh()->suspension_reason)->toBe(SuspensionReason::Manual)
+        ->and($feedLine->fresh()->status)->toBe(MarketStatus::Open);
 });

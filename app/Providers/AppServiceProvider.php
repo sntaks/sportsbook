@@ -5,17 +5,21 @@ namespace App\Providers;
 use App\Enums\AdminPermission;
 use App\Enums\AdminRole;
 use App\Models\Admin;
+use App\Models\Sport;
 use App\Policies\ActivityPolicy;
 use App\Sportsbook\OddsApi\CreditBudget;
 use App\Sportsbook\OddsApi\LiveOddsApi;
 use App\Sportsbook\OddsApi\OddsApi;
 use App\Sportsbook\OddsApi\ReplayOddsApi;
 use App\Sportsbook\Pricing\ConsensusPricer;
+use App\Sportsbook\Pricing\Derived\DerivedMarketPricer;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Activitylog\Models\Activity;
@@ -40,6 +44,13 @@ class AppServiceProvider extends ServiceProvider
             margin: (float) config('sportsbook.odds.margin'),
             minimumBookmakers: (int) config('sportsbook.odds.minimum_bookmakers'),
         ));
+
+        $this->app->bind(DerivedMarketPricer::class, fn (): DerivedMarketPricer => new DerivedMarketPricer(
+            margin: (float) config('sportsbook.odds.margin'),
+            modelMargin: (float) config('sportsbook.odds.derived_market_margin'),
+            firstHalfShare: (float) config('sportsbook.odds.first_half_goal_share'),
+            maximumModelPrice: (float) config('sportsbook.odds.derived_maximum_price'),
+        ));
     }
 
     /**
@@ -49,6 +60,31 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAdminAuthorization();
+        $this->configureSportsbookViews();
+    }
+
+    /**
+     * The sports sidebar is on every page, so its competition list is cached briefly. It is cached as plain arrays:
+     * the cache will not unserialize Eloquent models.
+     */
+    protected function configureSportsbookViews(): void
+    {
+        View::composer('components.sportsbook.sports-sidebar', function (\Illuminate\View\View $view): void {
+            $view->with('sports', Cache::remember('sportsbook.sidebar', now()->addMinutes(5), fn (): array => Sport::query()
+                ->whereHas('competitions', fn ($competitions) => $competitions->synced())
+                ->with(['competitions' => fn ($competitions) => $competitions->synced()->withCount('upcomingFixtures')->orderBy('sort_order')])
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn (Sport $sport): array => [
+                    'name' => $sport->name,
+                    'competitions' => $sport->competitions->map(fn ($competition): array => [
+                        'name' => $competition->name,
+                        'slug' => $competition->slug,
+                        'upcoming_fixtures_count' => (int) $competition->upcoming_fixtures_count,
+                    ])->all(),
+                ])
+                ->all()));
+        });
     }
 
     /**

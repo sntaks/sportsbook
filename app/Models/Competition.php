@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -20,6 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property int $id
  * @property int $sport_id
  * @property string $odds_api_key
+ * @property string $slug
  * @property string $name
  * @property string|null $description
  * @property bool $is_active_in_feed
@@ -28,11 +30,32 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['sport_id', 'odds_api_key', 'name', 'description', 'is_active_in_feed', 'is_synced', 'sort_order'])]
+#[Fillable(['sport_id', 'odds_api_key', 'slug', 'name', 'description', 'is_active_in_feed', 'is_synced', 'sort_order'])]
 class Competition extends Model
 {
     /** @use HasFactory<CompetitionFactory> */
     use HasFactory, LogsActivity;
+
+    /**
+     * Give new competitions a unique URL slug from their name. The slug never changes afterwards, so links keep
+     * working when the feed renames a competition.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $competition): void {
+            if (filled($competition->slug)) {
+                return;
+            }
+
+            $slug = Str::slug($competition->name) ?: Str::slug($competition->odds_api_key);
+            $competition->slug = static::where('slug', $slug)->exists() ? $slug.'-'.Str::lower(Str::random(4)) : $slug;
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
 
     /**
      * Get the attributes that should be cast.

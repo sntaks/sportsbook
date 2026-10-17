@@ -22,7 +22,8 @@ class SyncOddsCommand extends Command
         $marketTypes = $this->marketTypes();
 
         if ($marketTypes === null) {
-            $this->error('Unknown market key. Use any of: '.implode(', ', array_column(MarketType::cases(), 'value')).'.');
+            $feedKeys = array_map(fn (MarketType $type): string => $type->value, array_filter(MarketType::cases(), fn (MarketType $type): bool => $type->isFeedMarket()));
+            $this->error('Unknown market key. Use any of: '.implode(', ', $feedKeys).'.');
 
             return self::FAILURE;
         }
@@ -66,7 +67,7 @@ class SyncOddsCommand extends Command
         foreach (array_filter(array_map('trim', explode(',', $keys))) as $key) {
             $type = MarketType::tryFrom($key);
 
-            if ($type === null) {
+            if ($type === null || ! $type->isFeedMarket()) {
                 return null;
             }
 

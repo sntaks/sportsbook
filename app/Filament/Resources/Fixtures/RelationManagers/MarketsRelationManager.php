@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Fixtures\RelationManagers;
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
 use App\Models\Admin;
 use App\Models\Market;
@@ -54,6 +55,11 @@ class MarketsRelationManager extends RelationManager
                     ->color(fn (MarketStatus $state): string => $state === MarketStatus::Open ? 'success' : 'danger')
                     ->formatStateUsing(fn (MarketStatus $state): string => ucfirst($state->value))
                     ->description(fn (Market $record): ?string => $record->suspension_reason?->label()),
+                TextColumn::make('source')
+                    ->badge()
+                    ->color(fn (MarketSource $state): string => $state === MarketSource::Feed ? 'gray' : 'warning')
+                    ->formatStateUsing(fn (MarketSource $state): string => $state === MarketSource::Feed ? __('Feed') : __('Derived'))
+                    ->tooltip(fn (MarketSource $state) => $state === MarketSource::Derived ? __('Priced from the 1X2 by our goals model') : null),
                 TextColumn::make('bookmaker_count')
                     ->label(__('Bookmakers'))
                     ->numeric(),

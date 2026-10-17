@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Competition;
+use App\Models\Fixture;
+use App\Models\Market;
+use App\Models\Selection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -74,4 +78,33 @@ function useLiveOddsApi(): void
     ]);
 
     Http::preventStrayRequests();
+}
+
+/**
+ * An upcoming fixture in a synced competition with an open 1X2 market priced at the given prices.
+ *
+ * @param  array<string, mixed>  $fixtureAttributes
+ * @param  array<string, string>  $prices  Outcome => price.
+ */
+function pricedFixture(array $fixtureAttributes = [], array $prices = ['home' => '2.10', 'draw' => '3.40', 'away' => '3.50']): Fixture
+{
+    $fixture = Fixture::factory()
+        ->for(Competition::factory()->synced())
+        ->create($fixtureAttributes);
+    $market = Market::factory()->for($fixture)->create();
+    $names = ['home' => $fixture->home_team, 'draw' => 'Draw', 'away' => $fixture->away_team];
+
+    foreach ($prices as $outcome => $price) {
+        Selection::factory()->for($market)->create(['outcome' => $outcome, 'name' => $names[$outcome] ?? $outcome, 'feed_price' => $price]);
+    }
+
+    return $fixture->load('matchResultMarket.selections');
+}
+
+/**
+ * The fixture's 1X2 selection for an outcome.
+ */
+function selectionFor(Fixture $fixture, string $outcome = 'home'): Selection
+{
+    return $fixture->matchResultMarket->selections->firstWhere('outcome', $outcome);
 }

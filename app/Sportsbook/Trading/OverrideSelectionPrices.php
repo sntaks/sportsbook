@@ -4,8 +4,6 @@ namespace App\Sportsbook\Trading;
 
 use App\Models\Admin;
 use App\Models\Market;
-use App\Models\OddsSnapshot;
-use App\Models\Selection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -46,7 +44,7 @@ class OverrideSelectionPrices
                     'override_by_admin_id' => $newOverride === null ? null : $admin->id,
                 ]);
 
-                $this->snapshotIfChanged($selection->refresh(), $offeredBefore);
+                $selection->refresh()->recordOfferedPriceChange($offeredBefore);
                 $changes[$selection->name] = ['from' => $offeredBefore, 'to' => $selection->price()];
             }
 
@@ -74,22 +72,5 @@ class OverrideSelectionPrices
         }
 
         return number_format((float) $price, 2, '.', '');
-    }
-
-    private function snapshotIfChanged(Selection $selection, ?string $offeredBefore): void
-    {
-        $offeredNow = $selection->price();
-
-        if ($offeredNow === null || $offeredNow === $offeredBefore) {
-            return;
-        }
-
-        OddsSnapshot::create([
-            'selection_id' => $selection->id,
-            'price' => $offeredNow,
-            'fair_probability' => $selection->fair_probability,
-            'source' => $selection->hasOverride() ? 'override' : 'feed',
-            'captured_at' => now(),
-        ]);
     }
 }

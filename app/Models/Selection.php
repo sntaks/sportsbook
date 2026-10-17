@@ -22,10 +22,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $override_price
  * @property string|null $override_reason
  * @property int|null $override_by_admin_id
+ * @property string|null $previous_price
+ * @property CarbonImmutable|null $price_changed_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['market_id', 'outcome', 'name', 'fair_probability', 'feed_price', 'override_price', 'override_reason', 'override_by_admin_id'])]
+#[Fillable(['market_id', 'outcome', 'name', 'fair_probability', 'feed_price', 'override_price', 'override_reason', 'override_by_admin_id', 'previous_price', 'price_changed_at'])]
 class Selection extends Model
 {
     /** @use HasFactory<SelectionFactory> */
@@ -42,6 +44,8 @@ class Selection extends Model
             'fair_probability' => 'decimal:6',
             'feed_price' => 'decimal:2',
             'override_price' => 'decimal:2',
+            'previous_price' => 'decimal:2',
+            'price_changed_at' => 'datetime',
         ];
     }
 
@@ -75,6 +79,67 @@ class Selection extends Model
     public function price(): ?string
     {
         return $this->override_price ?? $this->feed_price;
+    }
+
+    /**
+     * Record that the offered price may have moved from $offeredBefore: keep the old price for the odds-movement
+     * arrow and add a history snapshot. Does nothing when the offered price is unchanged.
+     */
+    public function recordOfferedPriceChange(?string $offeredBefore): void
+    {
+        $offeredNow = $this->price();
+
+        if ($offeredNow === null || $offeredNow === $offeredBefore) {
+            return;
+        }
+
+        $this->forceFill(['previous_price' => $offeredBefore, 'price_changed_at' => now()])->save();
+
+        $this->snapshots()->create([
+            'price' => $offeredNow,
+            'fair_probability' => $this->fair_probability,
+            'source' => $this->hasOverride() ? 'override' : 'feed',
+            'captured_at' => now(),
+        ]);
+    }
+
+    /**
+     * Whether the offered price moved within the last day, and which way.
+     *
+     * @return 'up'|'down'|null
+     */
+    public function recentMovement(): ?string
+    {
+        if ($this->previous_price === null || $this->price_changed_at === null || $this->price_changed_at->lt(now()->subDay())) {
+            return null;
+        }
+
+        return match (true) {
+            (float) $this->price() > (float) $this->previous_price => 'up',
+            (float) $this->price() < (float) $this->previous_price => 'down',
+            default => null,
+        };
+    }
+
+    /**
+     * The compact label printed on an odds button, e.g. "1", "X2", "Over" or "2-1".
+     */
+    public function shortLabel(): string
+    {
+        return match ($this->outcome) {
+            'home' => '1',
+            'draw' => 'X',
+            'away' => '2',
+            'home_draw' => '1X',
+            'home_away' => '12',
+            'draw_away' => 'X2',
+            'over' => 'Over',
+            'under' => 'Under',
+            'yes' => 'Yes',
+            'no' => 'No',
+            'other' => 'Other',
+            default => $this->outcome,
+        };
     }
 
     public function hasOverride(): bool

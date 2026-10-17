@@ -58,7 +58,7 @@ final readonly class ConsensusPricer
 
             $priced[$outcome] = [
                 'fair_probability' => round($fairProbability, 6),
-                'price' => $this->offeredPrice($fairProbability),
+                'price' => Price::offered($fairProbability, $this->margin, $this->minimumPrice),
             ];
         }
 
@@ -101,16 +101,5 @@ final readonly class ConsensusPricer
         $middle = intdiv($count, 2);
 
         return $count % 2 === 1 ? $values[$middle] : ($values[$middle - 1] + $values[$middle]) / 2;
-    }
-
-    /**
-     * The price for a fair probability after our margin, rounded down so rounding never favours the player.
-     */
-    private function offeredPrice(float $fairProbability): string
-    {
-        $price = 1 / ($fairProbability * (1 + $this->margin));
-        $roundedDown = floor(round($price * 100, 6)) / 100;
-
-        return number_format(max($roundedDown, $this->minimumPrice), 2, '.', '');
     }
 }

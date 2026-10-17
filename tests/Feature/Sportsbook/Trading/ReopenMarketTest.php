@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\MarketSource;
 use App\Enums\MarketStatus;
+use App\Enums\MarketType;
 use App\Models\Admin;
 use App\Models\Fixture;
 use App\Models\Market;
@@ -22,6 +24,19 @@ test('reopens a freshly priced market for an upcoming fixture and logs who did i
     expect($market->fresh()->status)->toBe(MarketStatus::Open)
         ->and($market->fresh()->suspension_reason)->toBeNull()
         ->and(Activity::query()->where('event', 'market-reopened')->sole()->causer->is($admin))->toBeTrue();
+});
+
+test('reopening a 1X2 reopens derived markets suspended by hand, but not stale ones', function () {
+    $matchResult = Market::factory()->suspended()->has(Selection::factory())->create();
+    $fresh = Market::factory()->for($matchResult->fixture)->suspended()->has(Selection::factory())
+        ->create(['type' => MarketType::BothTeamsToScore, 'key' => 'btts', 'source' => MarketSource::Derived]);
+    $stale = Market::factory()->for($matchResult->fixture)->suspended()->pricedHoursAgo(30)->has(Selection::factory())
+        ->create(['type' => MarketType::CorrectScore, 'key' => 'correct_score', 'source' => MarketSource::Derived]);
+
+    app(ReopenMarket::class)->handle($matchResult, Admin::factory()->create());
+
+    expect($fresh->fresh()->status)->toBe(MarketStatus::Open)
+        ->and($stale->fresh()->status)->toBe(MarketStatus::Suspended);
 });
 
 test('refuses to reopen a market that cannot take bets right now', function (Closure $makeMarket, string $message) {

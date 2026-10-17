@@ -8,6 +8,7 @@ use App\Models\Fixture;
 use App\Sportsbook\OddsApi\OddsApi;
 use App\Sportsbook\Pricing\ApplyMarketPrice;
 use App\Sportsbook\Pricing\ConsensusPricer;
+use App\Sportsbook\Pricing\Derived\DeriveMarkets;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -22,6 +23,7 @@ class SyncOdds
         private readonly ConsensusPricer $pricer,
         private readonly UpsertFixture $upsertFixture,
         private readonly ApplyMarketPrice $applyMarketPrice,
+        private readonly DeriveMarkets $deriveMarkets,
     ) {}
 
     /**
@@ -35,17 +37,30 @@ class SyncOdds
             array_map(fn (MarketType $type): string => $type->value, $marketTypes),
         );
 
+        $fixtures = [];
+
         foreach ($events as $event) {
-            DB::transaction(function () use ($competition, $event, $marketTypes): void {
+            $fixtures[] = DB::transaction(function () use ($competition, $event, $marketTypes): Fixture {
                 $fixture = $this->upsertFixture->handle($competition, $event);
 
                 foreach ($marketTypes as $type) {
                     match ($type) {
                         MarketType::MatchResult => $this->priceMatchResult($fixture, $event),
                         MarketType::Totals => $this->priceTotals($fixture, $event),
+                        default => null,
                     };
                 }
+
+                return $fixture;
             });
+        }
+
+        // Derive only once every fixture's feed prices are in, so the competition's typical goals (from its feed
+        // Over 2.5 lines) is complete before any fixture relies on it.
+        if (in_array(MarketType::MatchResult, $marketTypes, true)) {
+            foreach ($fixtures as $fixture) {
+                DB::transaction(fn () => $this->deriveMarkets->handle($fixture));
+            }
         }
 
         return count($events);
