@@ -27,6 +27,13 @@ Schedule::command('wallet:reconcile-deposits')
     ->withoutOverlapping(5)
     ->onOneServer();
 
+// Free postponement voids every run; paid scores (2 credits) only for competitions with bets waiting on a result,
+// at most every 12 hours each.
+Schedule::command('sportsbook:settle')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer();
+
 Schedule::command('sportsbook:suspend-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)

@@ -27,10 +27,12 @@ use Spatie\Activitylog\Support\LogOptions;
  * @property bool $is_active_in_feed
  * @property bool $is_synced
  * @property int $sort_order
+ * @property bool $auto_settle Results come from the scores feed; otherwise from the admin panel.
+ * @property CarbonImmutable|null $scores_checked_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['sport_id', 'odds_api_key', 'slug', 'name', 'description', 'is_active_in_feed', 'is_synced', 'sort_order'])]
+#[Fillable(['sport_id', 'odds_api_key', 'slug', 'name', 'description', 'is_active_in_feed', 'is_synced', 'sort_order', 'auto_settle', 'scores_checked_at'])]
 class Competition extends Model
 {
     /** @use HasFactory<CompetitionFactory> */
@@ -43,6 +45,11 @@ class Competition extends Model
     protected static function booted(): void
     {
         static::creating(function (self $competition): void {
+            // Competitions listed as manual are settled from the admin panel instead of the scores feed.
+            if ($competition->getAttribute('auto_settle') === null) {
+                $competition->auto_settle = ! in_array($competition->odds_api_key, (array) config('sportsbook.settlement.manual_competitions'), true);
+            }
+
             if (filled($competition->slug)) {
                 return;
             }
@@ -67,6 +74,8 @@ class Competition extends Model
         return [
             'is_active_in_feed' => 'boolean',
             'is_synced' => 'boolean',
+            'auto_settle' => 'boolean',
+            'scores_checked_at' => 'datetime',
         ];
     }
 
@@ -112,7 +121,7 @@ class Competition extends Model
     {
         return LogOptions::defaults()
             ->useLogName('odds')
-            ->logOnly(['is_synced', 'sort_order'])
+            ->logOnly(['is_synced', 'sort_order', 'auto_settle'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->setDescriptionForEvent(fn (string $eventName): string => "Competition {$eventName}");

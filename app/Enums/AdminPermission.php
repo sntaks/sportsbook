@@ -13,4 +13,6 @@ enum AdminPermission: string
     case ApproveWithdrawals = 'approve withdrawals';
     case AdjustBalances = 'adjust balances';
     case ReconcilePayments = 'reconcile payments';
+    case ViewBets = 'view bets';
+    case SettleBets = 'settle bets';
 }

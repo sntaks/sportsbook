@@ -8,7 +8,6 @@ use App\Models\Selection;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -19,7 +18,7 @@ class FixturesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['competition', 'matchResultMarket.selections']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['competition', 'matchResultMarket.selections', 'result']))
             ->defaultSort('kicks_off_at')
             ->columns([
                 TextColumn::make('kicks_off_at')
@@ -43,20 +42,14 @@ class FixturesTable
                     ->badge()
                     ->color(fn (?MarketStatus $state): string => $state === MarketStatus::Open ? 'success' : 'danger')
                     ->formatStateUsing(fn (?MarketStatus $state): string => $state === null ? '—' : ucfirst($state->value)),
+                TextColumn::make('result_score')
+                    ->label(__('Result'))
+                    ->state(fn (Fixture $record): ?string => $record->result?->scoreLine())
+                    ->placeholder('—'),
             ])
             ->filters([
                 SelectFilter::make('competition')
                     ->relationship('competition', 'name', fn (Builder $query) => $query->where('is_synced', true)),
-                TernaryFilter::make('upcoming')
-                    ->label(__('Kick-off'))
-                    ->placeholder(__('All fixtures'))
-                    ->trueLabel(__('Not started'))
-                    ->falseLabel(__('Kicked off'))
-                    ->default(true)
-                    ->queries(
-                        true: fn (Builder $query) => $query->where('kicks_off_at', '>', now()),
-                        false: fn (Builder $query) => $query->where('kicks_off_at', '<=', now()),
-                    ),
             ])
             ->recordActions([
                 ViewAction::make(),

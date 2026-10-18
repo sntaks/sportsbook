@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Betting\Settlement;
+
+use App\Enums\BetLegStatus;
+use App\Models\Admin;
+use App\Models\BetLeg;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Voids one leg on its own: its match was postponed, or (by an admin) it was priced in error. The leg then counts
+ * as 1.00 and the bet settles again, reopening it first if it had already settled. The leg stays void even if the
+ * match result is later corrected.
+ */
+class VoidLeg
+{
+    public function __construct(private ReopenBet $reopenBet, private SettleBet $settleBet) {}
+
+    public function handle(BetLeg $leg, string $reason, ?Admin $admin = null): BetLeg
+    {
+        return DB::transaction(function () use ($leg, $reason, $admin): BetLeg {
+            $leg = BetLeg::query()->whereKey($leg->id)->lockForUpdate()->firstOrFail();
+
+            if ($leg->status === BetLegStatus::Void && $leg->void_reason !== null) {
+                return $leg;
+            }
+
+            $this->reopenBet->handle($leg->bet);
+            $leg->update(['status' => BetLegStatus::Void, 'void_reason' => mb_substr($reason, 0, 255), 'settled_at' => now()]);
+            $this->settleBet->handle($leg->bet);
+
+            if ($admin !== null) {
+                activity('settlement')
+                    ->causedBy($admin)
+                    ->performedOn($leg->bet)
+                    ->event('leg-voided')
+                    ->withProperties(['leg' => "{$leg->fixture_name}: {$leg->market_name} {$leg->selection_name} @ {$leg->price}", 'reason' => $reason])
+                    ->log('Bet leg voided');
+            }
+
+            return $leg;
+        });
+    }
+}

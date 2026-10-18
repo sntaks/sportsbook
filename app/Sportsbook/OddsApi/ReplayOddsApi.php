@@ -52,6 +52,16 @@ class ReplayOddsApi implements OddsApi
     }
 
     /**
+     * The recorded scores. Recorded games had already finished, so they match no replayed (always upcoming) fixture:
+     * locally, results are entered in the admin panel.
+     */
+    public function scores(string $sportKey, int $daysFrom): array
+    {
+        /** @var list<array{id: string, sport_key: string, commence_time: string, completed: bool, home_team: string, away_team: string, scores: list<array{name: string, score: string}>|null, last_update: string|null}> */
+        return $this->load('scores', $sportKey);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function load(string $endpoint, ?string $sportKey = null): array

@@ -24,6 +24,10 @@ class Ledger
     /**
      * Post one entry. A positive amount (cents) is money in, a negative one is money out.
      *
+     * $allowNegative is only for taking back a payout after a corrected result: the player may already have spent
+     * or withdrawn it, so the balance can go below zero. A negative balance blocks withdrawals and bets by itself,
+     * since both need money.
+     *
      * @throws InsufficientFunds when money out would take the balance below zero.
      * @throws IdempotencyConflict when the key was already used for a different entry.
      */
@@ -35,12 +39,13 @@ class Ledger
         ?Model $source = null,
         ?string $description = null,
         ?Admin $admin = null,
+        bool $allowNegative = false,
     ): WalletTransaction {
         if ($amount === 0) {
             throw new InvalidArgumentException('A wallet entry must move some money.');
         }
 
-        return DB::transaction(function () use ($user, $type, $amount, $idempotencyKey, $source, $description, $admin): WalletTransaction {
+        return DB::transaction(function () use ($user, $type, $amount, $idempotencyKey, $source, $description, $admin, $allowNegative): WalletTransaction {
             $wallet = $this->lockWallet($user);
 
             // Checked under the wallet lock, so a duplicate posted at the same moment waits and then finds this one.
@@ -56,7 +61,7 @@ class Ledger
 
             $balanceAfter = $wallet->balance + $amount;
 
-            if ($balanceAfter < 0) {
+            if ($balanceAfter < 0 && ! $allowNegative) {
                 throw new InsufficientFunds($wallet->balance, $amount);
             }
 

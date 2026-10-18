@@ -28,11 +28,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $selection_name
  * @property string $price
  * @property BetLegStatus $status
+ * @property string|null $void_reason Set when the leg was voided on its own (postponed, pricing error).
  * @property CarbonImmutable|null $settled_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['bet_id', 'selection_id', 'market_id', 'fixture_id', 'fixture_name', 'kicks_off_at', 'market_type', 'market_line', 'market_name', 'outcome', 'selection_name', 'price', 'status', 'settled_at'])]
+#[Fillable(['bet_id', 'selection_id', 'market_id', 'fixture_id', 'fixture_name', 'kicks_off_at', 'market_type', 'market_line', 'market_name', 'outcome', 'selection_name', 'price', 'status', 'void_reason', 'settled_at'])]
 class BetLeg extends Model
 {
     /** @use HasFactory<BetLegFactory> */

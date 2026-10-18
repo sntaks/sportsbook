@@ -6,6 +6,7 @@ use App\Enums\WalletTransactionType;
 use App\Filament\Resources\Players\Pages\ListPlayers;
 use App\Filament\Resources\Players\Pages\ViewPlayer;
 use App\Filament\Resources\Players\PlayerResource;
+use App\Filament\Resources\Players\RelationManagers\BetsRelationManager;
 use App\Models\Admin;
 use App\Models\User;
 use App\Wallet\Ledger;
@@ -104,4 +105,15 @@ test('a trader cannot open the players list', function () {
     $this->actingAs(Admin::factory()->withAppAuthentication()->withRole(AdminRole::Trader)->create(), 'admin');
 
     $this->get(PlayerResource::getUrl('index'))->assertForbidden();
+});
+
+test('a player\'s page lists only their own bets', function () {
+    $this->actingAs(Admin::factory()->withRole(AdminRole::Support)->create(), 'admin');
+    $player = bettor();
+    $theirs = betOn($player, [[pricedFixture(), 'home']]);
+    $someoneElses = betOn(bettor(), [[pricedFixture(), 'home']]);
+
+    Livewire::test(BetsRelationManager::class, ['ownerRecord' => $player, 'pageClass' => ViewPlayer::class])
+        ->assertCanSeeTableRecords([$theirs])
+        ->assertCanNotSeeTableRecords([$someoneElses]);
 });

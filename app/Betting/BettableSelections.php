@@ -2,6 +2,7 @@
 
 namespace App\Betting;
 
+use App\Enums\FixtureStatus;
 use App\Models\Selection;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -35,6 +36,7 @@ class BettableSelections
         $market = $selection->market;
 
         return match (true) {
+            $market->fixture->status === FixtureStatus::Cancelled => 'This match was called off.',
             $market->fixture->hasKickedOff() => 'This match has started.',
             ! $market->isOpen() => 'This market is suspended.',
             $selection->price() === null => 'This selection has no price.',
