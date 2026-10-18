@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\WalletTransactionType;
 use App\Models\User;
+use App\Wallet\Ledger;
 use Livewire\Livewire;
 
 test('profile page is displayed', function () {
@@ -75,6 +77,20 @@ test('user can delete their account', function () {
 
     expect($user->fresh())->toBeNull();
     expect(auth()->check())->toBeFalse();
+});
+
+test('an account that has moved money cannot be deleted by the player', function () {
+    $user = User::factory()->create();
+    app(Ledger::class)->post($user, WalletTransactionType::Deposit, 50_000, 'test:1');
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::settings.delete-user-modal')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password' => 'Accounts with deposits or transactions cannot be deleted here. Contact support to close your account.']);
+
+    expect($user->fresh())->not->toBeNull();
 });
 
 test('correct password must be provided to delete account', function () {

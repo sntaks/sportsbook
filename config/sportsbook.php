@@ -67,6 +67,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Wallet
+    |--------------------------------------------------------------------------
+    |
+    | Deposit limits are in whole shillings: M-Pesa only moves whole shillings.
+    | The deposit tax rate is a fraction (0.05 = 5%) and stays 0 until the
+    | current Kenyan rate is confirmed; when set, it posts as its own entry.
+    |
+    */
+
+    'wallet' => [
+        'min_deposit' => (int) env('SPORTSBOOK_MIN_DEPOSIT', 10),
+        'max_deposit' => (int) env('SPORTSBOOK_MAX_DEPOSIT', 150_000),
+        'deposit_tax_rate' => (float) env('SPORTSBOOK_DEPOSIT_TAX_RATE', 0),
+        // STK pushes a player can start in a rolling window, so nobody's phone can be spammed with prompts.
+        'stk_pushes_per_window' => 5,
+        'stk_push_window_minutes' => 10,
+        // A new push is refused while the last one is still pending and younger than this (the prompt on the phone
+        // lasts about a minute).
+        'stk_prompt_seconds' => 90,
+        // A pending STK deposit with no callback is checked with STK Push Query after this long, at most once
+        // per interval, and given up on (expired) after the last value.
+        'stk_query_after_seconds' => 60,
+        'stk_expire_after_minutes' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Betting Limits
     |--------------------------------------------------------------------------
     */

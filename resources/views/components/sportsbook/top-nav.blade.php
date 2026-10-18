@@ -20,6 +20,8 @@
                 <flux:icon.magnifying-glass class="size-5" />
             </a>
             @auth
+                <livewire:sportsbook.balance />
+
                 <flux:dropdown position="bottom" align="end">
                     <button type="button" class="flex items-center gap-2 rounded-full border border-ink-600 py-1 pl-1 pr-3 text-sm text-ivory hover:border-gold/40">
                         <span class="flex size-7 items-center justify-center rounded-full bg-gold/15 text-xs font-semibold text-gold">{{ auth()->user()->initials() }}</span>
@@ -27,6 +29,7 @@
                     </button>
 
                     <flux:menu>
+                        <flux:menu.item :href="route('wallet')" icon="wallet" wire:navigate>{{ __('Wallet') }}</flux:menu.item>
                         <flux:menu.item :href="route('my-bets')" icon="clipboard-document-list" wire:navigate>{{ __('My bets') }}</flux:menu.item>
                         <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Account settings') }}</flux:menu.item>
                         <flux:menu.separator />
