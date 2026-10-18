@@ -21,6 +21,12 @@ Schedule::command('sportsbook:sync-odds')
     ->withoutOverlapping(60)
     ->onOneServer();
 
+// STK deposits whose callback never came: asks Safaricom how they ended, so no player's money gets stuck.
+Schedule::command('wallet:reconcile-deposits')
+    ->everyMinute()
+    ->withoutOverlapping(5)
+    ->onOneServer();
+
 Schedule::command('sportsbook:suspend-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)

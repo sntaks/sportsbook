@@ -34,6 +34,7 @@ Route::middleware(['guest'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('my-bets', 'pages::sportsbook.my-bets')->name('my-bets');
+    Route::livewire('account/wallet', 'pages::sportsbook.wallet')->name('wallet');
 });
 
 require __DIR__.'/settings.php';

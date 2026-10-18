@@ -23,7 +23,7 @@
             <flux:icon.clipboard-document-list class="size-5" />
             {{ __('My Bets') }}
         </a>
-        <a href="{{ auth()->check() ? route('profile.edit') : route('login') }}" wire:navigate class="{{ $itemClasses }} text-smoke">
+        <a href="{{ auth()->check() ? route('wallet') : route('login') }}" wire:navigate @class([$itemClasses, 'text-gold' => request()->routeIs('wallet'), 'text-smoke' => ! request()->routeIs('wallet')])>
             <flux:icon.user-circle class="size-5" />
             {{ __('Account') }}
         </a>

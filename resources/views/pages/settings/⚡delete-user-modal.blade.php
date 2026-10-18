@@ -19,7 +19,16 @@ new class extends Component {
             'password' => $this->currentPasswordRules(),
         ]);
 
-        tap(Auth::user(), $logout(...))->delete();
+        // Money records must be kept, so an account that has moved money is closed by support, not deleted.
+        $user = Auth::user();
+
+        if ($user->mpesaDeposits()->exists() || $user->wallet()->whereHas('transactions')->exists()) {
+            $this->addError('password', __('Accounts with deposits or transactions cannot be deleted here. Contact support to close your account.'));
+
+            return;
+        }
+
+        tap($user, $logout(...))->delete();
 
         $this->redirect('/', navigate: true);
     }

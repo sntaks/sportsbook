@@ -7,6 +7,9 @@ use App\Models\Market;
 use App\Models\Selection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Mockery\LegacyMockInterface;
+use Psr\Log\LoggerInterface;
 use Tests\TestCase;
 
 /*
@@ -91,6 +94,78 @@ class FakeSmsSender implements SmsSender
 
         return $matches[1] ?? throw new RuntimeException("No code was sent to {$phone}.");
     }
+}
+
+/**
+ * Point M-Pesa at the sandbox with test credentials and fake its token endpoint. Any other Safaricom request needs
+ * its own Http::fake() in the test; anything unfaked fails the test, so no test can reach Safaricom.
+ */
+function fakeMpesa(): void
+{
+    config([
+        'mpesa.environment' => 'sandbox',
+        'mpesa.callback_secret' => MPESA_TEST_SECRET,
+        'mpesa.callback_base_url' => 'https://callbacks.sportsbook.test',
+        'mpesa.allowed_ips' => [],
+        'mpesa.apps.c2b' => ['consumer_key' => 'c2b-key', 'consumer_secret' => 'c2b-secret'],
+        'mpesa.apps.b2c' => ['consumer_key' => 'b2c-key', 'consumer_secret' => 'b2c-secret'],
+        'mpesa.lnmo.short_code' => '174379',
+        'mpesa.lnmo.passkey' => 'test-passkey',
+        'mpesa.c2b.short_code' => '600000',
+        'mpesa.b2c.short_code' => '600001',
+        'mpesa.b2c.initiator_name' => 'testapi',
+        'mpesa.b2c.security_credential' => 'initiator-password',
+    ]);
+
+    Http::preventStrayRequests();
+    Http::fake(['sandbox.safaricom.co.ke/oauth/*' => Http::response(['access_token' => 'test-token', 'expires_in' => '3599'])]);
+}
+
+const MPESA_TEST_SECRET = 'test-callback-secret-0123456789abcdef0123456789';
+
+/**
+ * Replace the "mpesa" log channel with a spy; assert on it with shouldHaveReceived().
+ */
+function spyOnMpesaLog(): LegacyMockInterface
+{
+    $channel = Mockery::spy(LoggerInterface::class);
+    Log::shouldReceive('channel')->with('mpesa')->andReturn($channel);
+
+    return $channel;
+}
+
+/**
+ * The URL Safaricom would post a callback to, e.g. mpesaCallbackUrl('stk').
+ */
+function mpesaCallbackUrl(string $path): string
+{
+    return '/api/mpesa/'.MPESA_TEST_SECRET.'/'.$path;
+}
+
+/**
+ * The body Safaricom posts to the STK callback URL.
+ *
+ * @return array<string, mixed>
+ */
+function stkCallback(string $checkoutRequestId, int $resultCode = 0, ?int $amount = 500, ?string $phone = '254712345678', string $receipt = 'TJK1A2B3C4'): array
+{
+    $callback = [
+        'MerchantRequestID' => 'MR-1',
+        'CheckoutRequestID' => $checkoutRequestId,
+        'ResultCode' => $resultCode,
+        'ResultDesc' => $resultCode === 0 ? 'The service request is processed successfully.' : 'Request cancelled by user',
+    ];
+
+    if ($resultCode === 0) {
+        $callback['CallbackMetadata'] = ['Item' => [
+            ['Name' => 'Amount', 'Value' => $amount],
+            ['Name' => 'MpesaReceiptNumber', 'Value' => $receipt],
+            ['Name' => 'TransactionDate', 'Value' => 20261018101500],
+            ['Name' => 'PhoneNumber', 'Value' => (int) $phone],
+        ]];
+    }
+
+    return ['Body' => ['stkCallback' => $callback]];
 }
 
 /**
