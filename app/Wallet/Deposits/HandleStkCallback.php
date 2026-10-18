@@ -73,7 +73,7 @@ class HandleStkCallback
         }
 
         if ($paid['amount'] !== $deposit->amount || $paid['phone'] !== $deposit->phone) {
-            $this->markMismatch($deposit, $paid['receipt'], $attributes);
+            $this->markMismatch($deposit, $paid['receipt'], [...$attributes, 'paid_amount' => $paid['amount']]);
 
             return;
         }
@@ -141,6 +141,7 @@ class HandleStkCallback
                 'status' => MpesaDepositStatus::Unmatched,
                 'phone' => $paid['phone'] ?? '',
                 'amount' => $paid['amount'] ?? 0,
+                'paid_amount' => $paid['amount'],
                 'checkout_request_id' => $checkoutRequestId,
                 'mpesa_receipt' => $paid['receipt'],
                 'result_code' => $resultCode,

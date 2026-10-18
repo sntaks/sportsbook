@@ -9,7 +9,9 @@ use App\Enums\AdminPermission;
 use App\Enums\AdminRole;
 use App\Models\Admin;
 use App\Models\Sport;
+use App\Models\User;
 use App\Policies\ActivityPolicy;
+use App\Policies\PlayerPolicy;
 use App\Sportsbook\OddsApi\CreditBudget;
 use App\Sportsbook\OddsApi\LiveOddsApi;
 use App\Sportsbook\OddsApi\OddsApi;
@@ -101,6 +103,8 @@ class AppServiceProvider extends ServiceProvider
     protected function configureAdminAuthorization(): void
     {
         Gate::policy(Activity::class, ActivityPolicy::class);
+        // Players are the User model; the name says what the admin panel treats them as.
+        Gate::policy(User::class, PlayerPolicy::class);
 
         Gate::before(fn (mixed $user, string $ability): ?bool => $user instanceof Admin
             && AdminPermission::tryFrom($ability) !== null

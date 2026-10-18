@@ -18,6 +18,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="ADMIN_DOMAIN" value="admin.sportsbook.test"/>
         <env name="ODDS_API_KEY" value=""/>

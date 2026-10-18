@@ -17,8 +17,13 @@ class AdminRoleSeeder extends Seeder
      * @var array<string, list<AdminPermission>>
      */
     private const ROLE_PERMISSIONS = [
-        'manager' => [AdminPermission::ViewActivityLog, AdminPermission::ManageCompetitions, AdminPermission::ManageOdds],
+        'manager' => [
+            AdminPermission::ViewActivityLog, AdminPermission::ManageCompetitions, AdminPermission::ManageOdds,
+            AdminPermission::ViewPlayers, AdminPermission::ManagePlayers, AdminPermission::ApproveWithdrawals, AdminPermission::ReconcilePayments,
+        ],
         'trader' => [AdminPermission::ManageOdds],
+        'finance' => [AdminPermission::ViewPlayers, AdminPermission::ApproveWithdrawals, AdminPermission::AdjustBalances, AdminPermission::ReconcilePayments],
+        'support' => [AdminPermission::ViewPlayers],
     ];
 
     /**

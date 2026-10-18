@@ -1,13 +1,18 @@
 <?php
 
 use App\Enums\MpesaDepositStatus;
+use App\Enums\WithdrawalStatus;
 use App\Models\MpesaDeposit;
 use App\Models\WalletTransaction;
+use App\Models\Withdrawal;
 use App\Support\Money;
 use App\Support\PhoneNumber;
 use App\Wallet\Deposits\StartDeposit;
 use App\Wallet\Ledger;
+use App\Wallet\Withdrawals\RequestWithdrawal;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -22,6 +27,12 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
     private const WATCH_SECONDS = 120;
 
     public string $amount = '';
+
+    public string $withdrawAmount = '';
+
+    /** Confirmation shown after a withdrawal request. */
+    #[Locked]
+    public ?string $withdrawMessage = null;
 
     /** The STK deposit this page is waiting on. */
     #[Locked]
@@ -56,6 +67,33 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
     public function dismiss(): void
     {
         $this->depositId = null;
+    }
+
+    public function withdraw(RequestWithdrawal $requestWithdrawal): void
+    {
+        try {
+            $withdrawal = $requestWithdrawal->handle(auth()->user(), $this->withdrawAmount === '' ? null : $this->withdrawAmount);
+        } catch (ValidationException $e) {
+            // Shown under the withdraw form, not the deposit form's "amount".
+            throw ValidationException::withMessages(['withdrawAmount' => collect($e->errors())->flatten()->all()]);
+        }
+
+        $this->reset('withdrawAmount');
+        $this->withdrawMessage = $withdrawal->status === WithdrawalStatus::AwaitingApproval
+            ? __('We are reviewing your withdrawal of :amount. It will be sent to your M-Pesa once approved.', ['amount' => Money::format($withdrawal->amount)])
+            : __('Your withdrawal of :amount is on its way to your M-Pesa.', ['amount' => Money::format($withdrawal->amount)]);
+
+        unset($this->balance, $this->transactions, $this->recentWithdrawals);
+        $this->dispatch('wallet-updated');
+    }
+
+    /**
+     * @return Collection<int, Withdrawal>
+     */
+    #[Computed]
+    public function recentWithdrawals(): Collection
+    {
+        return Withdrawal::query()->where('user_id', auth()->id())->latest('id')->limit(5)->get();
     }
 
     #[Computed]
@@ -96,9 +134,28 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
 }; ?>
 
 <div class="mx-auto max-w-3xl space-y-4">
+    @php($player = auth()->user())
+
+    @if ($player->isSuspended())
+        <div class="rounded-lg border border-live/40 bg-live/10 p-4 text-sm text-ivory" role="alert" data-test="account-banner">
+            <p class="font-semibold">{{ __('Your account is suspended') }}</p>
+            <p class="mt-1 text-smoke">{{ __('Deposits, withdrawals and betting are paused. Please contact support.') }}</p>
+        </div>
+    @elseif ($player->isExcluded())
+        <div class="rounded-lg border border-gold/30 bg-gold/10 p-4 text-sm text-ivory" role="status" data-test="account-banner">
+            <p class="font-semibold">{{ __('You are on a :type until :date', ['type' => mb_strtolower((string) $player->exclusion_type?->label()), 'date' => $player->excluded_until?->timezone(config('sportsbook.timezone'))->format('j M Y, H:i')]) }}</p>
+            <p class="mt-1 text-smoke">{{ __('Deposits and betting are paused. You can still withdraw your balance.') }}</p>
+        </div>
+    @endif
+
     <section class="glass-card p-5">
-        <p class="text-sm text-smoke">{{ __('Balance') }}</p>
-        <p class="mt-1 font-display text-3xl font-bold tabular-nums text-gold" data-test="wallet-balance">{{ Money::format($this->balance) }}</p>
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-sm text-smoke">{{ __('Balance') }}</p>
+                <p class="mt-1 font-display text-3xl font-bold tabular-nums text-gold" data-test="wallet-balance">{{ Money::format($this->balance) }}</p>
+            </div>
+            <a href="{{ route('responsible-gambling.settings') }}" wire:navigate class="text-xs font-medium text-gold hover:text-gold-bright">{{ __('Limits & breaks') }}</a>
+        </div>
     </section>
 
     <section class="glass-card p-5">
@@ -149,7 +206,7 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
             </div>
         @endif
 
-        @unless ($deposit && $this->stillWatching())
+        @if ($player->canDeposit() && ! ($deposit && $this->stillWatching()))
             <form wire:submit="deposit" class="mt-4 space-y-3">
                 <label class="block">
                     <span class="text-xs text-smoke">{{ __('Amount (KES)') }}</span>
@@ -181,7 +238,7 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
                     {{ __('Minimum KES :min, maximum KES :max per deposit.', ['min' => number_format((int) config('sportsbook.wallet.min_deposit')), 'max' => number_format((int) config('sportsbook.wallet.max_deposit'))]) }}
                 </p>
             </form>
-        @endunless
+        @endif
 
         @if (filled(config('mpesa.c2b.short_code')))
             <div class="mt-5 rounded-lg border border-ink-700 bg-ink-900 p-4 text-sm" data-test="paybill-instructions">
@@ -192,6 +249,62 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
                     <li>{{ __('Account number: your phone number') }} <span class="font-semibold tabular-nums text-ivory">{{ '0'.substr((string) auth()->user()->phone, 3) }}</span></li>
                 </ol>
             </div>
+        @endif
+    </section>
+
+    <section class="glass-card p-5">
+        <h2 class="font-display text-xl font-bold text-ivory">{{ __('Withdraw to M-Pesa') }}</h2>
+        <p class="mt-1 text-sm text-smoke">
+            {{ __('Paid to :phone. Withdrawals of KES :threshold or more are checked by our team first.', ['phone' => PhoneNumber::mask($player->phone), 'threshold' => number_format((int) config('sportsbook.wallet.withdrawal_approval_threshold'))]) }}
+        </p>
+
+        @if ($withdrawMessage)
+            <p class="mt-4 rounded-lg border border-win/40 bg-win/10 p-4 text-sm text-ivory" role="status" data-test="withdraw-message">{{ $withdrawMessage }}</p>
+        @endif
+
+        @if ($player->canWithdraw())
+            <form wire:submit="withdraw" class="mt-4 space-y-3">
+                <label class="block">
+                    <span class="text-xs text-smoke">{{ __('Amount (KES)') }}</span>
+                    <input
+                        type="number"
+                        inputmode="numeric"
+                        step="1"
+                        min="{{ config('sportsbook.wallet.min_withdrawal') }}"
+                        max="{{ config('sportsbook.wallet.max_withdrawal') }}"
+                        wire:model="withdrawAmount"
+                        class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 tabular-nums text-ivory focus:border-gold/50"
+                        placeholder="{{ config('sportsbook.wallet.min_withdrawal') }}"
+                        data-test="withdraw-amount"
+                    >
+                </label>
+                @error('withdrawAmount')
+                    <p class="text-xs text-live" data-test="withdraw-error">{{ $message }}</p>
+                @enderror
+                <button type="submit" wire:loading.attr="disabled" class="w-full rounded-full border border-gold/50 px-4 py-3 text-sm font-semibold text-gold hover:bg-gold/10 disabled:opacity-60" data-test="withdraw-button">
+                    {{ __('Withdraw') }}
+                </button>
+                <p class="text-xs text-smoke">
+                    {{ __('Minimum KES :min, maximum KES :max per withdrawal.', ['min' => number_format((int) config('sportsbook.wallet.min_withdrawal')), 'max' => number_format((int) config('sportsbook.wallet.max_withdrawal'))]) }}
+                </p>
+            </form>
+        @endif
+
+        @if ($this->recentWithdrawals->isNotEmpty())
+            <ul class="mt-4 divide-y divide-ink-700 text-sm" data-test="withdrawals">
+                @foreach ($this->recentWithdrawals as $withdrawal)
+                    <li class="flex items-center justify-between gap-4 py-2" wire:key="withdrawal-{{ $withdrawal->id }}">
+                        <span class="text-smoke">{{ $withdrawal->created_at?->timezone(config('sportsbook.timezone'))->format('j M, H:i') }}</span>
+                        <span class="tabular-nums text-ivory">{{ Money::format($withdrawal->amount) }}</span>
+                        <span @class([
+                            'text-xs',
+                            'text-win' => $withdrawal->status === WithdrawalStatus::Completed,
+                            'text-gold' => ! $withdrawal->status->isSettled(),
+                            'text-live' => in_array($withdrawal->status, [WithdrawalStatus::Failed, WithdrawalStatus::Rejected], true),
+                        ])>{{ $withdrawal->status->label() }}</span>
+                    </li>
+                @endforeach
+            </ul>
         @endif
     </section>
 

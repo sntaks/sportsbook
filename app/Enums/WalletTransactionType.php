@@ -7,6 +7,8 @@ enum WalletTransactionType: string
     case Deposit = 'deposit';
     case DepositTax = 'deposit-tax';
     case Adjustment = 'adjustment';
+    case Withdrawal = 'withdrawal';
+    case WithdrawalRefund = 'withdrawal-refund';
 
     /**
      * Name shown to the player in their transaction history.
@@ -17,6 +19,8 @@ enum WalletTransactionType: string
             self::Deposit => __('Deposit'),
             self::DepositTax => __('Tax on deposit'),
             self::Adjustment => __('Adjustment'),
+            self::Withdrawal => __('Withdrawal'),
+            self::WithdrawalRefund => __('Withdrawal returned'),
         };
     }
 }

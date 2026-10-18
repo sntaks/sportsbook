@@ -21,7 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property MpesaDepositChannel $channel
  * @property MpesaDepositStatus $status
  * @property string $phone Masked by Safaricom on Paybill payments.
- * @property int $amount Cents.
+ * @property int $amount Cents; what we asked for (STK) or what arrived (Paybill).
+ * @property int|null $paid_amount Cents M-Pesa reported, when it differs from the amount asked for.
  * @property string|null $account_reference
  * @property string|null $merchant_request_id
  * @property string|null $checkout_request_id
@@ -33,10 +34,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $query_attempts
  * @property CarbonImmutable|null $last_queried_at
  * @property CarbonImmutable|null $completed_at
+ * @property int|null $resolved_by_admin_id
+ * @property CarbonImmutable|null $resolved_at
+ * @property string|null $resolution_note
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['user_id', 'channel', 'status', 'phone', 'amount', 'account_reference', 'merchant_request_id', 'checkout_request_id', 'mpesa_receipt', 'result_code', 'result_description', 'callback_payload', 'wallet_transaction_id', 'query_attempts', 'last_queried_at', 'completed_at'])]
+#[Fillable(['user_id', 'channel', 'status', 'phone', 'amount', 'account_reference', 'merchant_request_id', 'checkout_request_id', 'mpesa_receipt', 'result_code', 'result_description', 'callback_payload', 'wallet_transaction_id', 'query_attempts', 'last_queried_at', 'completed_at', 'paid_amount', 'resolved_by_admin_id', 'resolved_at', 'resolution_note'])]
 class MpesaDeposit extends Model
 {
     /** @use HasFactory<MpesaDepositFactory> */
@@ -57,6 +61,8 @@ class MpesaDeposit extends Model
             'query_attempts' => 'integer',
             'last_queried_at' => 'datetime',
             'completed_at' => 'datetime',
+            'paid_amount' => 'integer',
+            'resolved_at' => 'datetime',
         ];
     }
 
@@ -74,6 +80,22 @@ class MpesaDeposit extends Model
     public function walletTransaction(): BelongsTo
     {
         return $this->belongsTo(WalletTransaction::class);
+    }
+
+    /**
+     * @return BelongsTo<Admin, $this>
+     */
+    public function resolvedBy(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'resolved_by_admin_id');
+    }
+
+    /**
+     * Mismatched and unmatched payments: money M-Pesa received that nobody has been credited for yet.
+     */
+    public function needsResolution(): bool
+    {
+        return in_array($this->status, [MpesaDepositStatus::Mismatch, MpesaDepositStatus::Unmatched], true);
     }
 
     /**
