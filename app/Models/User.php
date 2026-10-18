@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ExclusionType;
+use App\Enums\OddsChangePolicy;
 use App\Enums\UserStatus;
 use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
@@ -30,6 +31,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $suspension_reason
  * @property ExclusionType|null $exclusion_type
  * @property Carbon|null $excluded_until
+ * @property OddsChangePolicy $odds_change_policy
  * @property string|null $name
  * @property string|null $email
  * @property Carbon|null $email_verified_at
@@ -55,6 +57,7 @@ class User extends Authenticatable implements PasskeyUser
      */
     protected $attributes = [
         'status' => 'active',
+        'odds_change_policy' => 'higher',
     ];
 
     /**
@@ -70,6 +73,7 @@ class User extends Authenticatable implements PasskeyUser
             'status' => UserStatus::class,
             'exclusion_type' => ExclusionType::class,
             'excluded_until' => 'datetime',
+            'odds_change_policy' => OddsChangePolicy::class,
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
@@ -136,6 +140,22 @@ class User extends Authenticatable implements PasskeyUser
     public function canDeposit(): bool
     {
         return ! $this->isSuspended() && ! $this->isExcluded();
+    }
+
+    /**
+     * Excluded and suspended players cannot bet.
+     */
+    public function canBet(): bool
+    {
+        return ! $this->isSuspended() && ! $this->isExcluded();
+    }
+
+    /**
+     * @return HasMany<Bet, $this>
+     */
+    public function bets(): HasMany
+    {
+        return $this->hasMany(Bet::class);
     }
 
     /**

@@ -1,12 +1,19 @@
 <?php
 
+use App\Betting\BetNotPlaced;
 use App\Betting\BetSlipQuote;
 use App\Betting\BettableSelections;
 use App\Betting\BookingCodes\CreateBookingCode;
 use App\Betting\BookingCodes\ResolveBookingCode;
+use App\Betting\PlaceBet;
+use App\Enums\OddsChangePolicy;
+use App\Models\Bet;
 use App\Models\User;
+use App\Support\Money;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -26,6 +33,20 @@ new class extends Component {
 
     public string $codeToLoad = '';
 
+    public string $oddsPolicy = 'higher';
+
+    /** One per slip: submitting the same slip twice finds the bet already placed instead of placing another. */
+    #[Locked]
+    public string $slipKey = '';
+
+    /** The bet just placed, shown as a confirmation until the player starts a new slip. */
+    #[Locked]
+    public ?int $placedBetId = null;
+
+    /** Why the last attempt was refused (a BetNotPlaced reason), so the slip can offer the right next step. */
+    #[Locked]
+    public ?string $refusal = null;
+
     /**
      * @var list<string> Selections on a loaded booking code that can no longer be bet on.
      */
@@ -34,11 +55,81 @@ new class extends Component {
     /**
      * @param  array<int, mixed>  $picks
      */
+    public function mount(): void
+    {
+        $this->slipKey = (string) Str::uuid();
+        $user = auth()->user();
+        $this->oddsPolicy = $user instanceof User ? $user->odds_change_policy->value : OddsChangePolicy::Higher->value;
+    }
+
     public function syncPicks(array $picks): void
     {
         $this->picks = array_values($picks);
         $this->bookingCode = null;
+        $this->refusal = null;
+        $this->resetErrorBag('bet');
+
+        if ($this->picks !== []) {
+            $this->placedBetId = null;
+        }
+
         unset($this->quote);
+    }
+
+    /**
+     * Remembered on the account, so the next slip starts with the same choice.
+     */
+    public function updatedOddsPolicy(string $value): void
+    {
+        $user = auth()->user();
+        $policy = OddsChangePolicy::tryFrom($value);
+
+        if ($user instanceof User && $policy !== null) {
+            $user->forceFill(['odds_change_policy' => $policy])->save();
+        }
+    }
+
+    public function placeBet(PlaceBet $placeBet): void
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            $this->redirectRoute('login', navigate: true);
+
+            return;
+        }
+
+        $this->resetErrorBag('bet');
+        $this->refusal = null;
+
+        try {
+            $bet = $placeBet->handle($user, $this->picks, trim($this->stake), OddsChangePolicy::tryFrom($this->oddsPolicy), $this->slipKey);
+        } catch (BetNotPlaced $e) {
+            $this->refusal = $e->reason;
+            $this->addError('bet', $e->getMessage());
+            unset($this->quote);
+
+            return;
+        }
+
+        $this->placedBetId = $bet->id;
+        $this->slipKey = (string) Str::uuid();
+        $this->stake = '';
+        $this->dispatch('betslip-clear');
+        $this->dispatch('wallet-updated');
+    }
+
+    public function newSlip(): void
+    {
+        $this->placedBetId = null;
+    }
+
+    #[Computed]
+    public function placedBet(): ?Bet
+    {
+        return $this->placedBetId === null
+            ? null
+            : Bet::query()->whereKey($this->placedBetId)->where('user_id', auth()->id())->first();
     }
 
     #[Computed]
@@ -138,6 +229,7 @@ new class extends Component {
     x-on:betslip-accept-prices.window="$store.betslip.acceptPrices($event.detail.prices)"
     x-on:betslip-remove.window="$event.detail.selectionIds.forEach((id) => $store.betslip.remove(id))"
     x-on:betslip-replace.window="$store.betslip.replace($event.detail.picks); betSlipOpen = true"
+    x-on:betslip-clear.window="$store.betslip.clear()"
 >
     @php $quote = $this->quote; @endphp
 
@@ -161,7 +253,24 @@ new class extends Component {
         </div>
     </div>
 
-    @if (count($quote->lines) === 0)
+    @if ($placedBet = $this->placedBet)
+        <div class="px-4 py-5" role="status" data-test="bet-placed">
+            <div class="flex items-center gap-2 text-win">
+                <flux:icon.check-circle class="size-6" />
+                <p class="font-semibold">{{ __('Bet placed') }}</p>
+            </div>
+            <dl class="mt-3 space-y-1.5 text-sm">
+                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Bet ID') }}</dt><dd class="font-mono font-semibold tracking-wider text-ivory" data-test="bet-reference">{{ $placedBet->reference }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ $placedBet->type->label() }}</dt><dd class="tabular-nums text-ivory">{{ __('Odds') }} {{ $placedBet->total_odds }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Stake') }}</dt><dd class="tabular-nums text-ivory">{{ Money::format($placedBet->stake) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Possible win (before tax)') }}</dt><dd class="font-display font-bold tabular-nums text-gold">{{ Money::format($placedBet->potential_payout) }}</dd></div>
+            </dl>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+                <a href="{{ route('my-bets') }}" wire:navigate class="rounded-full border border-ink-600 px-3 py-2 text-center text-sm text-ivory hover:border-gold/40">{{ __('My bets') }}</a>
+                <button type="button" wire:click="newSlip" class="rounded-full bg-gold px-3 py-2 text-sm font-semibold text-ink-950 hover:bg-gold-bright">{{ __('New slip') }}</button>
+            </div>
+        </div>
+    @elseif (count($quote->lines) === 0)
         <div class="px-4 py-8 text-center">
             <flux:icon.ticket class="mx-auto mb-3 size-8 text-gold-dim" />
             <p class="font-medium text-ivory">{{ __('Your bet slip is empty') }}</p>
@@ -226,7 +335,8 @@ new class extends Component {
                 <span class="text-xs text-smoke">{{ __('Stake (KES)') }}</span>
                 <input
                     type="number"
-                    inputmode="decimal"
+                    inputmode="numeric"
+                    step="1"
                     min="{{ config('sportsbook.limits.min_stake') }}"
                     max="{{ config('sportsbook.limits.max_stake') }}"
                     wire:model.live.debounce.300ms="stake"
@@ -252,9 +362,42 @@ new class extends Component {
             @endif
 
             @auth
-                <button type="button" disabled class="w-full cursor-not-allowed rounded-full bg-ink-700 px-4 py-3 text-sm font-semibold text-smoke">
-                    {{ __('Betting opens soon') }}
-                </button>
+                @if (! auth()->user()->canBet())
+                    <p class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" data-test="cannot-bet">
+                        {{ auth()->user()->isSuspended() ? __('Your account is suspended. Please contact support.') : __('Betting is paused while your break from betting runs.') }}
+                    </p>
+                @else
+                    <label class="block">
+                        <span class="sr-only">{{ __('Odds changes') }}</span>
+                        <select wire:model.live="oddsPolicy" class="min-h-9 w-full rounded-lg border border-ink-600 bg-ink-800 px-2 text-xs text-smoke" data-test="odds-policy">
+                            @foreach (OddsChangePolicy::cases() as $policy)
+                                <option value="{{ $policy->value }}">{{ $policy->label() }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    @error('bet')
+                        <div class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" role="alert" data-test="bet-error">
+                            <p>{{ $message }}</p>
+                            @if ($refusal === BetNotPlaced::INSUFFICIENT_FUNDS)
+                                <a href="{{ route('wallet') }}" wire:navigate class="mt-2 inline-block font-semibold text-gold hover:text-gold-bright">{{ __('Deposit now') }}</a>
+                            @endif
+                        </div>
+                    @enderror
+
+                    <button
+                        type="button"
+                        wire:click="placeBet"
+                        wire:loading.attr="disabled"
+                        wire:target="placeBet"
+                        @disabled($quote->bettableCount() === 0 || $quote->hasUnavailable() || $quote->stake === null || $quote->stakeErrors !== [])
+                        class="w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-smoke"
+                        data-test="place-bet"
+                    >
+                        <span wire:loading.remove wire:target="placeBet">{{ __('Place bet') }}</span>
+                        <span wire:loading wire:target="placeBet">{{ __('Placing…') }}</span>
+                    </button>
+                @endif
             @else
                 <a href="{{ route('login') }}" class="block w-full rounded-full bg-gold px-4 py-3 text-center text-sm font-semibold text-ink-950 hover:bg-gold-bright">
                     {{ __('Log in to bet') }}

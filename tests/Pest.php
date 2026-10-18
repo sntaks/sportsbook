@@ -250,6 +250,16 @@ function pricedFixture(array $fixtureAttributes = [], array $prices = ['home' =>
 }
 
 /**
+ * A bet slip pick as the browser sends it, at the price the player saw (the current price by default).
+ *
+ * @return array{fixture_id: int, selection_id: int, price: string|null}
+ */
+function slipPick(Selection $selection, ?string $price = null): array
+{
+    return ['fixture_id' => $selection->market->fixture_id, 'selection_id' => $selection->id, 'price' => $price ?? $selection->price()];
+}
+
+/**
  * The fixture's 1X2 selection for an outcome.
  */
 function selectionFor(Fixture $fixture, string $outcome = 'home'): Selection

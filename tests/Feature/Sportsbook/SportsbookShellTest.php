@@ -51,7 +51,7 @@ test('a signed-in player sees their bets page', function () {
 
     $response = $this->get(route('my-bets'));
 
-    $response->assertOk()->assertSee('You have not placed any bets yet');
+    $response->assertOk()->assertSee('No open bets');
 });
 
 test('the footer shows the licence line only when one is configured', function () {

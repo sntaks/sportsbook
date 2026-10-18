@@ -123,7 +123,7 @@ select:focus[data-flux-control] {
     transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
     cursor: pointer;
 
-    &:hover:not(:disabled) {
+    &:hover:not(:disabled):not([aria-pressed='true']) {
         border-color: rgb(245 197 66 / 0.5);
         background: var(--color-ink-700);
     }
@@ -132,6 +132,11 @@ select:focus[data-flux-control] {
         border-color: var(--color-gold);
         background: var(--color-gold);
         color: var(--color-ink-950);
+    }
+
+    &[aria-pressed='true']:hover {
+        border-color: var(--color-gold-bright);
+        background: var(--color-gold-bright);
     }
 
     &:disabled {
