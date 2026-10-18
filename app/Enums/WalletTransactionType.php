@@ -9,6 +9,9 @@ enum WalletTransactionType: string
     case Adjustment = 'adjustment';
     case Withdrawal = 'withdrawal';
     case WithdrawalRefund = 'withdrawal-refund';
+    case Stake = 'stake';
+    case Winnings = 'winnings';
+    case StakeRefund = 'stake-refund';
 
     /**
      * Name shown to the player in their transaction history.
@@ -21,6 +24,9 @@ enum WalletTransactionType: string
             self::Adjustment => __('Adjustment'),
             self::Withdrawal => __('Withdrawal'),
             self::WithdrawalRefund => __('Withdrawal returned'),
+            self::Stake => __('Bet placed'),
+            self::Winnings => __('Winnings'),
+            self::StakeRefund => __('Stake returned'),
         };
     }
 }
