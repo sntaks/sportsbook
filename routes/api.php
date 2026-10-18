@@ -18,4 +18,10 @@ Route::prefix('mpesa/{secret}')
         Route::post('stk', 'stk')->name('stk');
         Route::post('c2b/validation', 'paybillValidation')->name('paybill-validation');
         Route::post('c2b/confirmation', 'paybillConfirmation')->name('paybill-confirmation');
+        Route::post('b2c/result', 'payoutResult')->name('payout-result');
+        Route::post('b2c/status/result', 'payoutStatusResult')->name('payout-status-result');
+        Route::post('balance/result', 'balanceResult')->name('balance-result');
+        Route::post('{queue}/timeout', 'queueTimeout')
+            ->where('queue', 'b2c|b2c/status|balance|reversal')
+            ->name('queue-timeout');
     });

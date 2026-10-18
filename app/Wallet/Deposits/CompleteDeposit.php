@@ -40,16 +40,19 @@ class CompleteDeposit
                 throw new LogicException("Deposit {$deposit->id} has no player to credit.");
             }
 
+            // What M-Pesa actually received, when an admin credits a mismatched payment; otherwise the amount itself.
+            $amount = $deposit->paid_amount ?? $deposit->amount;
+
             $credit = $this->ledger->post(
                 $deposit->user,
                 WalletTransactionType::Deposit,
-                $deposit->amount,
+                $amount,
                 "mpesa-deposit:{$deposit->id}",
                 source: $deposit,
                 description: $receipt === null ? __('M-Pesa deposit') : __('M-Pesa deposit :receipt', ['receipt' => $receipt]),
             );
 
-            $tax = (int) round($deposit->amount * (float) config('sportsbook.wallet.deposit_tax_rate'));
+            $tax = (int) round($amount * (float) config('sportsbook.wallet.deposit_tax_rate'));
 
             if ($tax > 0) {
                 $this->ledger->post(

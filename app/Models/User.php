@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\ExclusionType;
+use App\Enums\UserStatus;
 use App\Support\PhoneNumber;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -23,6 +26,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $phone
  * @property Carbon|null $phone_verified_at
  * @property Carbon|null $adult_confirmed_at
+ * @property UserStatus $status
+ * @property string|null $suspension_reason
+ * @property ExclusionType|null $exclusion_type
+ * @property Carbon|null $excluded_until
  * @property string|null $name
  * @property string|null $email
  * @property Carbon|null $email_verified_at
@@ -42,6 +49,15 @@ class User extends Authenticatable implements PasskeyUser
     use HasApiTokens, HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
+     * Matches the column default, so a player created in this request already has a status.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'active',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -51,6 +67,9 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'phone_verified_at' => 'datetime',
             'adult_confirmed_at' => 'datetime',
+            'status' => UserStatus::class,
+            'exclusion_type' => ExclusionType::class,
+            'excluded_until' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
@@ -65,11 +84,66 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * The player's ledger entries.
+     *
+     * @return HasManyThrough<WalletTransaction, Wallet, $this>
+     */
+    public function walletTransactions(): HasManyThrough
+    {
+        return $this->hasManyThrough(WalletTransaction::class, Wallet::class);
+    }
+
+    /**
      * @return HasMany<MpesaDeposit, $this>
      */
     public function mpesaDeposits(): HasMany
     {
         return $this->hasMany(MpesaDeposit::class);
+    }
+
+    /**
+     * @return HasMany<Withdrawal, $this>
+     */
+    public function withdrawals(): HasMany
+    {
+        return $this->hasMany(Withdrawal::class);
+    }
+
+    /**
+     * @return HasMany<DepositLimit, $this>
+     */
+    public function depositLimits(): HasMany
+    {
+        return $this->hasMany(DepositLimit::class);
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === UserStatus::Suspended;
+    }
+
+    /**
+     * Whether a cool-off or self-exclusion is running now.
+     */
+    public function isExcluded(): bool
+    {
+        return $this->excluded_until !== null && $this->excluded_until->isFuture();
+    }
+
+    /**
+     * Excluded and suspended players cannot put money in (or bet, from phase 4).
+     */
+    public function canDeposit(): bool
+    {
+        return ! $this->isSuspended() && ! $this->isExcluded();
+    }
+
+    /**
+     * Excluded players can still take their money out; suspended players cannot.
+     */
+    public function canWithdraw(): bool
+    {
+        return ! $this->isSuspended();
     }
 
     /**

@@ -54,6 +54,20 @@ class ReconcilePendingDeposits
     }
 
     /**
+     * Check one pending STK deposit now, for an admin who does not want to wait for the schedule.
+     *
+     * @return 'completed'|'closed'|'expired'|'waiting'
+     */
+    public function reconcileNow(MpesaDeposit $deposit): string
+    {
+        $deposit->refresh();
+
+        return $deposit->status->isPending() && $deposit->channel === MpesaDepositChannel::Stk && $deposit->checkout_request_id !== null
+            ? $this->reconcile($deposit)
+            : 'waiting';
+    }
+
+    /**
      * @return 'completed'|'closed'|'expired'|'waiting'
      */
     private function reconcile(MpesaDeposit $deposit): string

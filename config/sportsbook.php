@@ -90,6 +90,17 @@ return [
         // per interval, and given up on (expired) after the last value.
         'stk_query_after_seconds' => 60,
         'stk_expire_after_minutes' => 30,
+
+        // Withdrawals, in whole shillings. At or above the approval threshold, finance approves before paying.
+        'min_withdrawal' => (int) env('SPORTSBOOK_MIN_WITHDRAWAL', 50),
+        'max_withdrawal' => (int) env('SPORTSBOOK_MAX_WITHDRAWAL', 150_000),
+        'withdrawal_approval_threshold' => (int) env('SPORTSBOOK_WITHDRAWAL_APPROVAL_THRESHOLD', 20_000),
+        'withdrawals_per_hour' => 5,
+        // A payout with no definite answer from M-Pesa after this long is shown to finance to resolve by hand.
+        'payout_stuck_after_minutes' => 30,
+
+        // Raising or removing a deposit limit waits this long; cutting one applies at once.
+        'limit_raise_delay_hours' => 24,
     ],
 
     /*

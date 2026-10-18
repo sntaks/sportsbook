@@ -1,10 +1,13 @@
 <?php
 
 use App\Accounts\Sms\SmsSender;
+use App\Enums\WalletTransactionType;
 use App\Models\Competition;
 use App\Models\Fixture;
 use App\Models\Market;
 use App\Models\Selection;
+use App\Models\User;
+use App\Wallet\Ledger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -166,6 +169,37 @@ function stkCallback(string $checkoutRequestId, int $resultCode = 0, ?int $amoun
     }
 
     return ['Body' => ['stkCallback' => $callback]];
+}
+
+/**
+ * A player with money in their wallet, credited through the ledger like a real deposit.
+ */
+function fundedPlayer(int $cents = 100_000, array $attributes = []): User
+{
+    $player = User::factory()->create(['phone' => '254712345678', ...$attributes]);
+    app(Ledger::class)->post($player, WalletTransactionType::Deposit, $cents, "test-funding:{$player->id}");
+
+    return $player;
+}
+
+/**
+ * The body Safaricom posts to a result URL (B2C payout, transaction status or balance).
+ *
+ * @param  array<string, mixed>  $parameters  ResultParameters as Key => Value.
+ * @return array<string, mixed>
+ */
+function mpesaResult(string $conversationId, int $resultCode = 0, array $parameters = [], ?string $transactionId = 'TKP1Q2R3S4', string $originatorConversationId = 'orig-1'): array
+{
+    return ['Result' => [
+        'ResultType' => 0,
+        'ResultCode' => $resultCode,
+        'ResultDesc' => $resultCode === 0 ? 'The service request is processed successfully.' : 'The initiator information is invalid.',
+        'OriginatorConversationID' => $originatorConversationId,
+        'ConversationID' => $conversationId,
+        'TransactionID' => $transactionId,
+        'ResultParameters' => ['ResultParameter' => collect($parameters)->map(fn ($value, $key) => ['Key' => $key, 'Value' => $value])->values()->all()],
+        'ReferenceData' => ['ReferenceItem' => ['Key' => 'QueueTimeoutURL', 'Value' => 'https://callbacks.sportsbook.test/timeout']],
+    ]];
 }
 
 /**

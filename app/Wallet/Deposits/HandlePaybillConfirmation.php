@@ -66,6 +66,12 @@ class HandlePaybillConfirmation
             return;
         }
 
+        // The money has already left the player's M-Pesa, so it is credited even when they may not deposit right now
+        // (decision 29); they can withdraw it but not bet with it. Logged so admin can see it happened.
+        if (! $player->canDeposit()) {
+            Log::channel('mpesa')->warning("Paybill payment {$receipt} credited to player {$player->id}, who is suspended or on a break from betting.");
+        }
+
         $this->completeDeposit->handle($deposit, $receipt);
     }
 }

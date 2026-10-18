@@ -35,6 +35,7 @@ Route::middleware(['guest'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::livewire('my-bets', 'pages::sportsbook.my-bets')->name('my-bets');
     Route::livewire('account/wallet', 'pages::sportsbook.wallet')->name('wallet');
+    Route::livewire('account/responsible-gambling', 'pages::sportsbook.responsible-gambling')->name('responsible-gambling.settings');
 });
 
 require __DIR__.'/settings.php';

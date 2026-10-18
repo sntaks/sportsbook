@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\Money;
 use App\Wallet\Mpesa\MpesaApiException;
 use App\Wallet\Mpesa\MpesaService;
+use App\Wallet\ResponsibleGambling\DepositAllowance;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -25,7 +26,7 @@ use InvalidArgumentException;
  */
 class StartDeposit
 {
-    public function __construct(private MpesaService $mpesa) {}
+    public function __construct(private MpesaService $mpesa, private DepositAllowance $depositAllowance) {}
 
     /**
      * @throws ValidationException
@@ -44,6 +45,7 @@ class StartDeposit
             throw ValidationException::withMessages(['amount' => __('Confirm your phone number before depositing.')]);
         }
 
+        $this->ensureAllowedToDeposit($user, Money::fromShillings($shillings));
         $this->ensureNotWaitingOnAnotherPush($user);
 
         $limiterKey = 'stk-push:'.$user->id;
@@ -81,6 +83,32 @@ class StartDeposit
         ]);
 
         return $deposit;
+    }
+
+    /**
+     * Suspended and excluded players cannot deposit, and nobody can go over their own deposit limits.
+     *
+     * @throws ValidationException
+     */
+    private function ensureAllowedToDeposit(User $user, int $amount): void
+    {
+        if ($user->isSuspended()) {
+            throw ValidationException::withMessages(['amount' => __('Your account is suspended. Please contact support.')]);
+        }
+
+        if ($user->isExcluded() && $user->excluded_until !== null) {
+            throw ValidationException::withMessages(['amount' => __('Deposits are paused until :date while your break from betting runs.', [
+                'date' => $user->excluded_until->timezone(config('sportsbook.timezone'))->format('j M Y, H:i'),
+            ])]);
+        }
+
+        $allowance = $this->depositAllowance->remaining($user);
+
+        if ($allowance !== null && $amount > $allowance) {
+            throw ValidationException::withMessages(['amount' => $allowance < Money::fromShillings((int) config('sportsbook.wallet.min_deposit'))
+                ? __('You have reached your deposit limit. It frees up as earlier deposits fall outside its period.')
+                : __('That would take you over your deposit limit. You can deposit up to :amount right now.', ['amount' => Money::format($allowance)])]);
+        }
     }
 
     /**

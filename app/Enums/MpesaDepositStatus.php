@@ -13,6 +13,8 @@ enum MpesaDepositStatus: string
     case Mismatch = 'mismatch';
     /** A Paybill payment whose account number matched no player. Not credited; for admin. */
     case Unmatched = 'unmatched';
+    /** A mismatched or unmatched payment an admin closed without crediting (with a note). */
+    case Dismissed = 'dismissed';
 
     /**
      * Whether the deposit can still change on its own (a callback or a status check may still arrive).
@@ -32,6 +34,7 @@ enum MpesaDepositStatus: string
             self::Expired => __('Expired'),
             self::Mismatch => __('Under review'),
             self::Unmatched => __('Unmatched'),
+            self::Dismissed => __('Dismissed'),
         };
     }
 }
