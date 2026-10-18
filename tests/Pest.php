@@ -1,7 +1,9 @@
 <?php
 
 use App\Accounts\Sms\SmsSender;
+use App\Betting\PlaceBet;
 use App\Enums\WalletTransactionType;
+use App\Models\Bet;
 use App\Models\Competition;
 use App\Models\Fixture;
 use App\Models\Market;
@@ -265,4 +267,25 @@ function slipPick(Selection $selection, ?string $price = null): array
 function selectionFor(Fixture $fixture, string $outcome = 'home'): Selection
 {
     return $fixture->matchResultMarket->selections->firstWhere('outcome', $outcome);
+}
+
+/**
+ * A player with a balance, any number per test (fundedPlayer() uses one fixed number).
+ */
+function bettor(int $cents = 100_000): User
+{
+    $player = User::factory()->create();
+    app(Ledger::class)->post($player, WalletTransactionType::Deposit, $cents, "test-funding:{$player->id}");
+
+    return $player;
+}
+
+/**
+ * Place a bet on the given fixtures' 1X2 outcomes, e.g. [[$fixture, 'home'], [$other, 'draw']].
+ *
+ * @param  list<array{0: Fixture, 1: string}>  $picks
+ */
+function betOn(User $player, array $picks, string $stake = '100'): Bet
+{
+    return app(PlaceBet::class)->handle($player, array_map(fn (array $pick): array => slipPick(selectionFor($pick[0], $pick[1])), $picks), $stake);
 }

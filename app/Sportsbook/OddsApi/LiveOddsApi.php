@@ -59,6 +59,17 @@ class LiveOddsApi implements OddsApi
         ]));
     }
 
+    public function scores(string $sportKey, int $daysFrom): array
+    {
+        $this->budget->ensureCanSpend($daysFrom > 0 ? 2 : 1);
+
+        /** @var list<array{id: string, sport_key: string, commence_time: string, completed: bool, home_team: string, away_team: string, scores: list<array{name: string, score: string}>|null, last_update: string|null}> */
+        return $this->send('scores', $sportKey, fn (PendingRequest $http): Response => $http->get("/sports/{$sportKey}/scores", array_filter([
+            'daysFrom' => $daysFrom > 0 ? $daysFrom : null,
+            'dateFormat' => 'iso',
+        ])));
+    }
+
     /**
      * @param  callable(PendingRequest): Response  $request
      * @return array<int, mixed>

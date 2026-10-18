@@ -192,4 +192,28 @@ return [
         'credit_reserve' => (int) env('ODDS_API_CREDIT_RESERVE', 50),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Settlement
+    |--------------------------------------------------------------------------
+    |
+    | Results come from the paid scores feed (2 credits a call), fetched only
+    | for competitions with open bets on matches that should have finished,
+    | and at most once per competition per check interval (decision 33).
+    | Competitions listed as manual are settled from the admin panel.
+    |
+    */
+
+    'settlement' => [
+        'result_after_minutes' => 135,
+        'scores_check_interval_hours' => 12,
+        'scores_days_from' => 3,
+        // A leg is void when its match moves more than this from the kick-off it was bet on.
+        'postponement_void_hours' => 48,
+        // Settled by hand until it is known whether the feed's scores include extra time.
+        'manual_competitions' => ['soccer_uefa_champs_league'],
+        // Withholding tax on net winnings, as a fraction; 0 until the current Kenyan rate is confirmed.
+        'winnings_tax_rate' => (float) env('SPORTSBOOK_WINNINGS_TAX_RATE', 0),
+    ],
+
 ];

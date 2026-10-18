@@ -30,12 +30,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $client_key
  * @property int|null $stake_transaction_id
  * @property int|null $payout_transaction_id
+ * @property int $settlement_version
  * @property CarbonImmutable $placed_at
  * @property CarbonImmutable|null $settled_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['user_id', 'reference', 'type', 'status', 'stake', 'total_odds', 'potential_payout', 'payout', 'odds_change_policy', 'client_key', 'stake_transaction_id', 'payout_transaction_id', 'placed_at', 'settled_at'])]
+#[Fillable(['user_id', 'reference', 'type', 'status', 'stake', 'total_odds', 'potential_payout', 'payout', 'odds_change_policy', 'client_key', 'stake_transaction_id', 'payout_transaction_id', 'settlement_version', 'placed_at', 'settled_at'])]
 class Bet extends Model
 {
     /** @use HasFactory<BetFactory> */
@@ -55,6 +56,7 @@ class Bet extends Model
             'total_odds' => 'decimal:2',
             'potential_payout' => 'integer',
             'payout' => 'integer',
+            'settlement_version' => 'integer',
             'odds_change_policy' => OddsChangePolicy::class,
             'placed_at' => 'datetime',
             'settled_at' => 'datetime',

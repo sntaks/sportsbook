@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Players;
 use App\Enums\UserStatus;
 use App\Filament\Resources\Players\Pages\ListPlayers;
 use App\Filament\Resources\Players\Pages\ViewPlayer;
+use App\Filament\Resources\Players\RelationManagers\BetsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\DepositsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\TransactionsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\WithdrawalsRelationManager;
@@ -105,6 +106,7 @@ class PlayerResource extends Resource
     {
         return [
             TransactionsRelationManager::class,
+            BetsRelationManager::class,
             DepositsRelationManager::class,
             WithdrawalsRelationManager::class,
         ];

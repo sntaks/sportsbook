@@ -75,7 +75,9 @@ class RequestWithdrawal
                     description: __('M-Pesa withdrawal to :phone', ['phone' => PhoneNumber::mask($user->phone)]),
                 );
             } catch (InsufficientFunds $e) {
-                throw ValidationException::withMessages(['amount' => __('You can withdraw up to :amount.', ['amount' => Money::format($e->balance)])]);
+                throw ValidationException::withMessages(['amount' => $e->balance > 0
+                    ? __('You can withdraw up to :amount.', ['amount' => Money::format($e->balance)])
+                    : __('Your balance is :amount, so there is nothing to withdraw.', ['amount' => Money::format($e->balance)])]);
             }
 
             $withdrawal->update(['hold_transaction_id' => $hold->id]);

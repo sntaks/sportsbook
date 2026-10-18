@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BetLegStatus;
 use App\Enums\FixtureStatus;
 use App\Enums\MarketType;
 use Carbon\CarbonImmutable;
@@ -73,6 +74,24 @@ class Fixture extends Model
         return $this->hasOne(Market::class)->where('type', MarketType::MatchResult->value);
     }
 
+    /**
+     * @return HasOne<FixtureResult, $this>
+     */
+    public function result(): HasOne
+    {
+        return $this->hasOne(FixtureResult::class);
+    }
+
+    /**
+     * Every bet leg placed on this fixture.
+     *
+     * @return HasMany<BetLeg, $this>
+     */
+    public function betLegs(): HasMany
+    {
+        return $this->hasMany(BetLeg::class);
+    }
+
     public function name(): string
     {
         return "{$this->home_team} v {$this->away_team}";
@@ -108,5 +127,18 @@ class Fixture extends Model
     protected function upcoming(Builder $query): void
     {
         $query->where('status', FixtureStatus::Scheduled)->where('kicks_off_at', '>', now());
+    }
+
+    /**
+     * Fixtures that kicked off long enough ago to be over, with open bets waiting on a result nobody has recorded.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function needingResult(Builder $query): void
+    {
+        $query->where('kicks_off_at', '<=', now()->subMinutes((int) config('sportsbook.settlement.result_after_minutes')))
+            ->whereDoesntHave('result')
+            ->whereHas('betLegs', fn (Builder $legs) => $legs->where('status', BetLegStatus::Open));
     }
 }

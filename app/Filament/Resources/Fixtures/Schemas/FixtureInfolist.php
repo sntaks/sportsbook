@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\Fixtures\Schemas;
 
+use App\Enums\FixtureStatus;
+use App\Models\Fixture;
+use App\Models\FixtureResult;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Schema;
 
@@ -27,6 +30,31 @@ class FixtureInfolist
                 TextEntry::make('external_id')
                     ->label(__('Odds API id'))
                     ->copyable(),
+                TextEntry::make('result_score')
+                    ->label(__('Result'))
+                    ->state(fn (Fixture $record): ?string => $record->result?->scoreLine())
+                    ->placeholder(__('No result yet'))
+                    ->badge()
+                    ->color(fn (Fixture $record): string => $record->result?->is_void ? 'danger' : 'success')
+                    ->helperText(fn (Fixture $record): ?string => self::recordedBy($record->result)),
+                TextEntry::make('result.note')
+                    ->label(__('Result note'))
+                    ->placeholder('—'),
+                TextEntry::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn (FixtureStatus $state): string => $state === FixtureStatus::Cancelled ? __('Called off') : __('Scheduled'))
+                    ->color(fn (FixtureStatus $state): string => $state === FixtureStatus::Cancelled ? 'danger' : 'gray'),
             ]);
+    }
+
+    private static function recordedBy(?FixtureResult $result): ?string
+    {
+        if ($result === null) {
+            return null;
+        }
+
+        return $result->source === FixtureResult::SOURCE_FEED
+            ? __('From the scores feed')
+            : __('Entered by :admin', ['admin' => $result->recordedBy->name ?? __('an admin')]);
     }
 }

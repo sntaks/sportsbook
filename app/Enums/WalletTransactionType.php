@@ -12,6 +12,9 @@ enum WalletTransactionType: string
     case Stake = 'stake';
     case Winnings = 'winnings';
     case StakeRefund = 'stake-refund';
+    case WinningsTax = 'winnings-tax';
+    /** A corrected result: the earlier payout is taken back before the bet settles again. */
+    case SettlementReversal = 'settlement-reversal';
 
     /**
      * Name shown to the player in their transaction history.
@@ -27,6 +30,8 @@ enum WalletTransactionType: string
             self::Stake => __('Bet placed'),
             self::Winnings => __('Winnings'),
             self::StakeRefund => __('Stake returned'),
+            self::WinningsTax => __('Tax on winnings'),
+            self::SettlementReversal => __('Result corrected'),
         };
     }
 }
