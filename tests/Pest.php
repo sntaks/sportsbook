@@ -3,10 +3,14 @@
 use App\Accounts\Sms\SmsSender;
 use App\Betting\Jackpot\EnterJackpot;
 use App\Betting\PlaceBet;
+use App\Betting\Settlement\RecordResult;
 use App\Enums\WalletTransactionType;
+use App\Models\Admin;
 use App\Models\Bet;
 use App\Models\Competition;
 use App\Models\Fixture;
+use App\Models\FixtureResult;
+use App\Models\FreeBet;
 use App\Models\Jackpot;
 use App\Models\JackpotEntry;
 use App\Models\Market;
@@ -310,6 +314,22 @@ function bettor(int $cents = 100_000): User
 function betOn(User $player, array $picks, string $stake = '100'): Bet
 {
     return app(PlaceBet::class)->handle($player, array_map(fn (array $pick): array => slipPick(selectionFor($pick[0], $pick[1])), $picks), $stake);
+}
+
+/**
+ * Record a fixture's score: from the feed, or as an admin's correction when an admin is given.
+ */
+function settleFixture(Fixture $fixture, int $home, int $away, ?Admin $admin = null): void
+{
+    app(RecordResult::class)->handle($fixture, ['home_score' => $home, 'away_score' => $away], $admin === null ? FixtureResult::SOURCE_FEED : FixtureResult::SOURCE_ADMIN, $admin);
+}
+
+/**
+ * An available KES 100 free bet (odds 1.50+, 7 days) for the player.
+ */
+function freeBetFor(User $player, array $attributes = []): FreeBet
+{
+    return FreeBet::factory()->for($player)->create($attributes);
 }
 
 /**

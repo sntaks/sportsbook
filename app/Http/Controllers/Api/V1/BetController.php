@@ -49,8 +49,12 @@ class BetController extends Controller
      * per slip, up to 64 characters: sending the same slip again returns the bet already placed with a 200 instead
      * of placing a second one.
      *
+     * To bet with a free bet, send its `id` as `free_bet_id` and leave out `stake`: the free bet's whole amount is the
+     * stake and nothing leaves the wallet. A win pays only the winnings above the stake, and there is no multibet bonus.
+     *
      * A refused bet is a 422 with a `reason` the app can act on: `not-allowed`, `empty-slip`, `unavailable`,
-     * `price-changed`, `duplicate-match`, `stake` or `insufficient-funds`.
+     * `price-changed`, `duplicate-match`, `stake`, `insufficient-funds`, `free-bet-unavailable` (not the player's,
+     * already used, void or expired) or `free-bet-min-odds`.
      */
     #[Response(status: 422, description: 'The slip is invalid (`errors`) or the bet was refused (`reason`).', type: 'array{message: string, reason?: string, errors?: array<string, list<string>>}')]
     public function store(PlaceBetRequest $request, PlaceBet $placeBet): JsonResponse
@@ -61,6 +65,7 @@ class BetController extends Controller
             $request->input('stake'),
             $request->enum('odds_change_policy', OddsChangePolicy::class),
             $request->string('slip_key')->toString(),
+            $request->filled('free_bet_id') ? $request->integer('free_bet_id') : null,
         );
 
         $response = BetResource::make($bet->load('legs'))->response();

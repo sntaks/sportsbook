@@ -252,4 +252,33 @@ return [
         'max_matches' => 17,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Promotions
+    |--------------------------------------------------------------------------
+    |
+    | Free bets (decision 41): defaults for a new one, which an admin can
+    | change when giving it, and how long a replacement lasts when the bet a
+    | free bet was used on ends void or is cancelled.
+    |
+    | Multibet bonus (decision 42): a percentage of a winning multi's profit
+    | (payout minus stake), by how many winning legs are priced at least
+    | min_price; a leg count between tiers takes the tier below. Never on
+    | free bets, and never past the maximum payout.
+    |
+    */
+
+    'promotions' => [
+        'free_bets' => [
+            'min_odds' => '1.50',
+            'expiry_days' => 7,
+            'replacement_days' => 7,
+        ],
+        'multibet_bonus' => [
+            'min_price' => '1.30',
+            // Qualifying legs => percent.
+            'tiers' => [3 => 3, 4 => 5, 5 => 7, 6 => 10, 8 => 15, 10 => 20, 15 => 35, 20 => 50],
+        ],
+    ],
+
 ];

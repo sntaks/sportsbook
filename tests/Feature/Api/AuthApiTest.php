@@ -93,7 +93,7 @@ test('resending to a number that has not started signing up returns 422 and send
 
     $this->postJson(route('api.v1.auth.register.resend'), ['phone' => '0712345678'])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['phone' => 'That code has expired. Please request a new one.']);
+        ->assertJsonValidationErrors(['phone' => 'Your sign-up has expired. Please start again.']);
 
     expect($sms->sent)->toBeEmpty();
 });

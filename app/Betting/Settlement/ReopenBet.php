@@ -3,8 +3,10 @@
 namespace App\Betting\Settlement;
 
 use App\Enums\BetStatus;
+use App\Enums\FreeBetStatus;
 use App\Enums\WalletTransactionType;
 use App\Models\Bet;
+use App\Models\FreeBet;
 use App\Wallet\Ledger;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +16,9 @@ use Illuminate\Support\Facades\DB;
  *
  * The player may already have spent or withdrawn the money, so the reversal may take the balance below zero; a
  * negative balance then blocks withdrawals and bets until it is covered. Cancelled bets are never reopened.
+ *
+ * A void free bet paid nothing, but was given a replacement free bet: that is taken back if still unused. If the
+ * player already bet with it, it stays theirs, and the activity log records it.
  */
 class ReopenBet
 {
@@ -40,9 +45,14 @@ class ReopenBet
                 );
             }
 
+            if ($bet->isFreeBet() && $bet->status === BetStatus::Void) {
+                $this->takeBackReplacement($bet);
+            }
+
             $bet->update([
                 'status' => BetStatus::Open,
                 'payout' => null,
+                'bonus' => null,
                 'payout_transaction_id' => null,
                 'settled_at' => null,
                 'settlement_version' => $bet->settlement_version + 1,
@@ -50,5 +60,25 @@ class ReopenBet
 
             return $bet;
         });
+    }
+
+    private function takeBackReplacement(Bet $bet): void
+    {
+        $replacement = FreeBet::query()
+            ->where('replaces_bet_id', $bet->id)
+            ->where('status', '!=', FreeBetStatus::Void)
+            ->latest('id')
+            ->lockForUpdate()
+            ->first();
+
+        if ($replacement?->status === FreeBetStatus::Available) {
+            $replacement->update(['status' => FreeBetStatus::Void, 'void_reason' => __('Its bet was reopened by a corrected result.'), 'voided_at' => now()]);
+        } elseif ($replacement !== null) {
+            activity('settlement')
+                ->performedOn($bet)
+                ->event('replacement-free-bet-kept')
+                ->withProperties(['reference' => $bet->reference, 'free_bet_id' => $replacement->id])
+                ->log('Replacement free bet already used, so not taken back');
+        }
     }
 }

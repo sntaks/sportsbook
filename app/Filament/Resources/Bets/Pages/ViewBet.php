@@ -28,11 +28,13 @@ class ViewBet extends ViewRecord
                 ->color('danger')
                 ->authorize(fn (): bool => Filament::auth()->user()?->can('update', $this->bet()) ?? false)
                 ->visible(fn (): bool => $this->bet()->status === BetStatus::Open)
-                ->modalDescription(fn (): string => __('The :stake stake goes back to the player and the bet closes as cancelled. Only for a bet placed in error.', ['stake' => Money::format($this->bet()->stake)]))
+                ->modalDescription(fn (): string => $this->bet()->isFreeBet()
+                    ? __('The player gets a new :stake free bet and the bet closes as cancelled. Only for a bet placed in error.', ['stake' => Money::format($this->bet()->stake)])
+                    : __('The :stake stake goes back to the player and the bet closes as cancelled. Only for a bet placed in error.', ['stake' => Money::format($this->bet()->stake)]))
                 ->schema([Textarea::make('reason')->required()->maxLength(255)])
                 ->action(fn (array $data) => CurrentAdmin::run(
                     fn (Admin $admin) => app(CancelBet::class)->handle($this->bet(), $admin, $data['reason']),
-                    __('Bet cancelled; the stake is back in the player\'s wallet'),
+                    $this->bet()->isFreeBet() ? __('Bet cancelled; the player has a new free bet') : __('Bet cancelled; the stake is back in the player\'s wallet'),
                 ))
                 ->after(function (): void {
                     $this->bet()->refresh();

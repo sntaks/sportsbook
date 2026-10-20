@@ -40,6 +40,11 @@ class PlayerPolicy
         return $admin->can(AdminPermission::AdjustBalances->value);
     }
 
+    public function grantFreeBet(Admin $admin, User $player): bool
+    {
+        return $admin->can(AdminPermission::GrantFreeBets->value);
+    }
+
     public function delete(Admin $admin, User $player): bool
     {
         return false;

@@ -3,10 +3,14 @@
 namespace App\Betting;
 
 use App\Models\Selection;
+use App\Promotions\MultibetBonus;
 
 /**
  * What a bet slip is worth right now: each pick checked against current prices, the combined odds and the possible
  * win for a stake. Built on the server from the player's picks, which are never trusted for prices.
+ *
+ * The possible win includes the multibet bonus the slip qualifies for if every pick wins. With a free bet it is only
+ * the winnings above the stake, since a free bet's stake never comes back, and there is no bonus.
  *
  * @phpstan-type Line array{selection: Selection, seen_price: string, status: 'ok'|'price_changed'|'unavailable', message: string|null}
  */
@@ -23,12 +27,16 @@ final readonly class BetSlipQuote
         public float $totalOdds,
         public float $possibleWin,
         public bool $isPayoutCapped,
+        public bool $isFreeBet = false,
+        public int $qualifyingLegs = 0,
+        public int $bonusPercent = 0,
+        public float $bonus = 0.0,
     ) {}
 
     /**
      * @param  array<int, mixed>  $picks  [{fixture_id, selection_id, price}] as sent by the browser.
      */
-    public static function for(array $picks, string $stake, BettableSelections $bettableSelections): self
+    public static function for(array $picks, string $stake, BettableSelections $bettableSelections, bool $isFreeBet = false): self
     {
         $seenPrices = self::seenPrices($picks);
         $selections = $bettableSelections->find(array_keys($seenPrices));
@@ -61,15 +69,40 @@ final readonly class BetSlipQuote
         [$stakeAmount, $stakeErrors] = self::validateStake($stake, $lines);
         $uncappedWin = $stakeAmount !== null ? $stakeAmount * $totalOdds : 0.0;
         $maxPayout = (float) config('sportsbook.limits.max_payout');
+        $payoutCents = (int) round(floor(min($uncappedWin, $maxPayout) * 100));
+        $stakeCents = $stakeAmount !== null ? (int) round($stakeAmount * 100) : 0;
+
+        $prices = collect($lines)
+            ->reject(fn (array $line): bool => $line['status'] === 'unavailable')
+            ->map(fn (array $line): string => (string) $line['selection']->price());
+        $qualifyingLegs = $isFreeBet ? 0 : MultibetBonus::qualifyingLegs($prices);
+        $bonusPercent = MultibetBonus::percentForLegs($qualifyingLegs);
+        $bonusCents = MultibetBonus::amount($stakeCents, $payoutCents, $bonusPercent);
 
         return new self(
             $lines,
             $stakeAmount,
             $stakeErrors,
             $totalOdds,
-            floor(min($uncappedWin, $maxPayout) * 100) / 100,
+            ($isFreeBet ? max(0, $payoutCents - $stakeCents) : $payoutCents + $bonusCents) / 100,
             $uncappedWin > $maxPayout,
+            $isFreeBet,
+            $qualifyingLegs,
+            $bonusPercent,
+            $bonusCents / 100,
         );
+    }
+
+    /**
+     * The next multibet bonus tier and how many more qualifying picks reach it, for the slip to show.
+     *
+     * @return array{legs: int, more: int, percent: int}|null
+     */
+    public function nextBonusTier(): ?array
+    {
+        $next = $this->isFreeBet ? null : MultibetBonus::nextTier($this->qualifyingLegs);
+
+        return $next === null ? null : [...$next, 'more' => $next['legs'] - $this->qualifyingLegs];
     }
 
     public function hasPriceChanges(): bool

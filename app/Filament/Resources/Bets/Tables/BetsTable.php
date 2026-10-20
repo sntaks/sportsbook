@@ -48,6 +48,7 @@ class BetsTable
                         : $state->label()),
                 TextColumn::make('stake')
                     ->formatStateUsing(fn (int $state): string => Money::format($state))
+                    ->description(fn (Bet $record): ?string => $record->isFreeBet() ? __('Free bet') : null)
                     ->sortable(),
                 TextColumn::make('total_odds')
                     ->label(__('Odds'))

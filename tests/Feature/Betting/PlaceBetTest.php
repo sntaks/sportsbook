@@ -66,7 +66,9 @@ test('several picks make one multi at the combined odds', function () {
     expect($bet)
         ->type->toBe(BetType::Multi)
         ->total_odds->toBe('24.99')
-        ->potential_payout->toBe(249_900)
+        ->bonus_percent->toBe(3)
+        // KES 2,499 plus the 3% multibet bonus on the KES 2,399 profit.
+        ->potential_payout->toBe(257_097)
         ->and($bet->legs)->toHaveCount(3);
 });
 

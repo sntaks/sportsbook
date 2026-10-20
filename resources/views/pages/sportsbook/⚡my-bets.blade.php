@@ -154,6 +154,12 @@ new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component
                         <p class="text-sm font-semibold text-ivory">
                             {{ $bet->type->label() }}
                             <span class="font-normal text-smoke">· {{ trans_choice('{1} :count selection|[2,*] :count selections', $bet->legs->count(), ['count' => $bet->legs->count()]) }}</span>
+                            @if ($bet->isFreeBet())
+                                <span class="ml-1 rounded-full bg-gold/15 px-2 py-0.5 text-xs font-medium text-gold" data-test="free-bet-badge">{{ __('Free bet') }}</span>
+                            @endif
+                            @if ($bet->bonus_percent > 0)
+                                <span class="ml-1 rounded-full bg-ink-700 px-2 py-0.5 text-xs font-medium text-ivory">{{ __('+:percent% bonus', ['percent' => $bet->bonus_percent]) }}</span>
+                            @endif
                         </p>
                         <p class="text-xs text-smoke">
                             {{ __('Bet ID') }} <span class="font-mono tracking-wider text-ivory">{{ $bet->reference }}</span>
@@ -193,7 +199,7 @@ new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component
 
                 <footer class="grid grid-cols-3 gap-2 border-t border-ink-700 px-4 py-3 text-sm">
                     <div>
-                        <p class="text-xs text-smoke">{{ __('Stake') }}</p>
+                        <p class="text-xs text-smoke">{{ $bet->isFreeBet() ? __('Free bet stake') : __('Stake') }}</p>
                         <p class="tabular-nums text-ivory">{{ Money::format($bet->stake) }}</p>
                     </div>
                     <div>
@@ -204,6 +210,9 @@ new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component
                         @if ($bet->status->isSettled())
                             <p class="text-xs text-smoke">{{ __('Paid') }}</p>
                             <p @class(['tabular-nums font-semibold', 'text-win' => ($bet->payout ?? 0) > 0, 'text-ivory' => ($bet->payout ?? 0) === 0])>{{ Money::format($bet->payout ?? 0) }}</p>
+                            @if (($bet->bonus ?? 0) > 0)
+                                <p class="text-xs text-smoke">{{ __('incl. :amount bonus', ['amount' => Money::format($bet->bonus)]) }}</p>
+                            @endif
                         @else
                             <p class="text-xs text-smoke">{{ __('Possible win') }}</p>
                             <p class="font-semibold tabular-nums text-gold">{{ Money::format($bet->potential_payout) }}</p>

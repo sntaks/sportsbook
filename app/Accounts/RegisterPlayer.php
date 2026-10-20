@@ -71,7 +71,7 @@ class RegisterPlayer
         $phone = (string) PhoneNumber::normalize($phone);
 
         if (! Cache::has($this->pendingKey($phone))) {
-            throw ValidationException::withMessages(['phone' => __(PhoneCodeResult::Expired->message())]);
+            throw ValidationException::withMessages(['phone' => __('Your sign-up has expired. Please start again.')]);
         }
 
         $this->sendCode($phone, $ip);
@@ -89,7 +89,7 @@ class RegisterPlayer
 
         // Checked before the code, so a correct code is never used up on a sign-up that has expired.
         if (! is_array($pending)) {
-            throw ValidationException::withMessages(['code' => __(PhoneCodeResult::Expired->message())]);
+            throw ValidationException::withMessages(['code' => __('Your sign-up has expired. Please start again.')]);
         }
 
         $result = $this->phoneCode->verify($phone, PhoneCodePurpose::Registration, $code);

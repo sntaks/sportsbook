@@ -6,7 +6,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Bet slip picks with the prices the player saw, and an optional stake in whole shillings.
+ * Bet slip picks with the prices the player saw, and an optional stake in whole shillings. free_bet prices the stake
+ * as a free bet: the possible win is then only the winnings above it, with no multibet bonus.
  */
 class QuoteSlipRequest extends FormRequest
 {
@@ -26,6 +27,7 @@ class QuoteSlipRequest extends FormRequest
             'picks.*.selection_id' => ['required', 'integer'],
             'picks.*.price' => ['required', 'numeric'],
             'stake' => ['nullable', 'numeric'],
+            'free_bet' => ['sometimes', 'boolean'],
         ];
     }
 }

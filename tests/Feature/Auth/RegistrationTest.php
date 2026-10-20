@@ -81,7 +81,7 @@ test('a sign-up left for longer than the code lasts has to start again', functio
 
     $component->set('code', $sms->lastCodeFor('254712345678'))
         ->call('createAccount')
-        ->assertHasErrors(['code' => 'That code has expired. Please request a new one.']);
+        ->assertHasErrors(['code' => 'Your sign-up has expired. Please start again.']);
 
     expect(User::count())->toBe(0);
 });
@@ -104,7 +104,7 @@ test('asking for a new code after the sign-up has lapsed says to start again and
     $this->travel(11)->minutes();
 
     $component->call('resendCode')
-        ->assertHasErrors(['phone' => 'That code has expired. Please request a new one.']);
+        ->assertHasErrors(['phone' => 'Your sign-up has expired. Please start again.']);
 
     expect($sms->sent)->toHaveCount(1);
 });

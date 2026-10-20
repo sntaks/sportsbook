@@ -2,6 +2,7 @@
 
 use App\Enums\BetLegStatus;
 use App\Enums\BetStatus;
+use App\Enums\BetType;
 use App\Models\Bet;
 use App\Models\BetLeg;
 use App\Models\User;
@@ -38,4 +39,17 @@ test('settled bets are on their own tab with what was paid', function () {
         ->assertSee('WONBET01')
         ->assertSee('KES 210.00')
         ->assertDontSee('OPENBET1');
+});
+
+test('a free bet and a multibet bonus are marked on the bet', function () {
+    $player = User::factory()->create();
+    Bet::factory()->for($player)->create(['reference' => 'FREEBET1', 'free_bet_id' => freeBetFor($player)->id]);
+    Bet::factory()->for($player)->create(['reference' => 'BONUSBT1', 'type' => BetType::Multi, 'bonus_percent' => 5, 'status' => BetStatus::Won, 'payout' => 95_078, 'bonus' => 2_478, 'settled_at' => now()]);
+    $this->actingAs($player);
+
+    Livewire::test('pages::sportsbook.my-bets')
+        ->assertSee('Free bet stake')
+        ->call('show', 'settled')
+        ->assertSee('+5% bonus')
+        ->assertSee('incl. KES 24.78 bonus');
 });
