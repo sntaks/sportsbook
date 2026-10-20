@@ -3,6 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Enums\AdminPermission;
+use App\Filament\Actions\ExportActions;
+use App\Filament\CurrentAdmin;
+use App\Filament\Exports\WalletTransactionExporter;
 use App\Filament\Pages\Reports\PaymentsByDay;
 use App\Filament\Pages\Reports\PeriodSummary;
 use App\Filament\Pages\Reports\RevenueByDay;
@@ -11,7 +14,10 @@ use App\Filament\Pages\Reports\TaxByMonth;
 use App\Filament\Pages\Reports\TopPlayers;
 use App\Filament\Pages\Reports\TurnoverBreakdown;
 use App\Reports\Period;
+use App\Reports\TaxReportFile;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Dashboard;
@@ -23,6 +29,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
 use Filament\Widgets\WidgetConfiguration;
+use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
 /**
@@ -55,6 +63,47 @@ class Reports extends Dashboard
     public static function period(?array $filters): Period
     {
         return Period::between($filters['from'] ?? null, $filters['until'] ?? null);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        $dates = fn (): array => [
+            'from' => self::period($this->filters)->firstDay->format('j M Y'),
+            'until' => self::period($this->filters)->lastDay->format('j M Y'),
+        ];
+
+        return [
+            ExportActions::make(WalletTransactionExporter::class, __('Export ledger'))
+                ->modalDescription(fn (): string => __('Ledger entries posted from :from to :until (EAT).', $dates()))
+                ->modifyQueryUsing(function (Builder $query): Builder {
+                    $period = self::period($this->filters);
+
+                    return $query->where('created_at', '>=', $period->start())->where('created_at', '<', $period->end());
+                }),
+            ActionGroup::make([
+                Action::make('downloadTaxReportCsv')
+                    ->label(__('CSV'))
+                    ->visible(fn (): bool => ExportActions::canExport())
+                    ->action(fn (): StreamedResponse => $this->downloadTaxReport('csv')),
+                Action::make('downloadTaxReportXlsx')
+                    ->label(__('Excel'))
+                    ->visible(fn (): bool => ExportActions::canExport())
+                    ->action(fn (): StreamedResponse => $this->downloadTaxReport('xlsx')),
+            ])
+                ->label(__('Download tax report'))
+                ->icon(Heroicon::OutlinedDocumentArrowDown)
+                ->color('gray')
+                ->button()
+                ->visible(fn (): bool => ExportActions::canExport()),
+        ];
+    }
+
+    /**
+     * @param  'csv'|'xlsx'  $format
+     */
+    private function downloadTaxReport(string $format): StreamedResponse
+    {
+        return app(TaxReportFile::class)->download(self::period($this->filters), $format, CurrentAdmin::get());
     }
 
     public function filtersForm(Schema $schema): Schema
