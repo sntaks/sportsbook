@@ -158,21 +158,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Tax
-    |--------------------------------------------------------------------------
-    |
-    | UNVERIFIED: these rates must be confirmed against current Kenyan law
-    | before launch (plan item B). They are settings, never hard-coded.
-    |
-    */
-
-    'tax' => [
-        'deposit_excise_rate' => (float) env('SPORTSBOOK_DEPOSIT_EXCISE_RATE', 0.05),
-        'winnings_withholding_rate' => (float) env('SPORTSBOOK_WINNINGS_WHT_RATE', 0.20),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | The Odds API Budget
     |--------------------------------------------------------------------------
     |
@@ -299,6 +284,24 @@ return [
                 'expiry_days' => 7,
             ],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reports
+    |--------------------------------------------------------------------------
+    |
+    | The admin dashboard and Reports page read the ledger through this
+    | database connection: the "reports" connection (a read replica) once
+    | DB_REPORTS_HOST is set, otherwise the main one. A replica may lag the
+    | main database by a few seconds. Report days are EAT calendar days, and
+    | a report covers at most max_days.
+    |
+    */
+
+    'reports' => [
+        'connection' => env('DB_REPORTS_HOST') ? 'reports' : null,
+        'max_days' => 366,
     ],
 
 ];
