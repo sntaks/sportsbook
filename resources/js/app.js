@@ -22,6 +22,12 @@ document.addEventListener('alpine:init', () => {
         picks: loadPicks(),
         maxPicks: window.sportsbook?.maxSelections ?? 30,
 
+        /**
+         * Whether the slip is open as a bottom sheet on phones. Kept here, not on the page, because the slip stays
+         * mounted across page changes while each page brings a new <body>.
+         */
+        isOpen: false,
+
         has(selectionId) {
             return this.picks.some((pick) => pick.selection_id === selectionId);
         },

@@ -50,7 +50,7 @@ new class extends Component {
 };
 ?>
 
-<div x-data="matchPanel" x-on:open-match.window="open($event.detail)" x-on:keydown.escape.window="isOpen && ! betSlipOpen && close()" data-match-panel>
+<div x-data="matchPanel" x-on:open-match.window="open($event.detail)" x-on:keydown.escape.window="isOpen && ! $store.betslip.isOpen && close()" data-match-panel>
     <div
         x-cloak
         x-show="isOpen"
@@ -109,8 +109,8 @@ new class extends Component {
             </div>
         </div>
 
-        <div class="border-t border-ink-700 p-3 lg:hidden">
-            <button type="button" x-on:click="betSlipOpen = true" class="flex w-full items-center justify-between rounded-full bg-gold px-5 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright">
+        <div class="border-t border-ink-700 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:hidden">
+            <button type="button" x-on:click="$store.betslip.isOpen = true" class="flex w-full items-center justify-between rounded-full bg-gold px-5 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright">
                 <span>{{ __('Bet slip') }}</span>
                 <span class="rounded-full bg-ink-950/15 px-2 tabular-nums" x-text="$store.betslip.count()"></span>
             </button>

@@ -269,7 +269,7 @@ new class extends Component {
     x-on:betslip-changed.window="$wire.syncPicks($event.detail.picks)"
     x-on:betslip-accept-prices.window="$store.betslip.acceptPrices($event.detail.prices)"
     x-on:betslip-remove.window="$event.detail.selectionIds.forEach((id) => $store.betslip.remove(id))"
-    x-on:betslip-replace.window="$store.betslip.replace($event.detail.picks); betSlipOpen = true"
+    x-on:betslip-replace.window="$store.betslip.replace($event.detail.picks); $store.betslip.isOpen = true"
     x-on:betslip-clear.window="$store.betslip.clear()"
 >
     @php $quote = $this->quote; @endphp
@@ -286,7 +286,7 @@ new class extends Component {
             <button
                 type="button"
                 class="flex size-10 items-center justify-center rounded-md text-smoke hover:text-ivory lg:hidden"
-                x-on:click="betSlipOpen = false"
+                x-on:click="$store.betslip.isOpen = false"
                 aria-label="{{ __('Close bet slip') }}"
             >
                 <flux:icon.x-mark class="size-5" />
@@ -329,7 +329,7 @@ new class extends Component {
                         <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-ivory">{{ $selection->name }}</p>
                             <p class="truncate text-xs text-smoke">{{ $selection->market->name() }}</p>
-                            <a href="{{ route('matches.show', $selection->market->fixture) }}" x-on:click="betSlipOpen = false; $openMatch($event, {{ $selection->market->fixture->id }}, @js($selection->market->fixture->name()))" class="block truncate text-xs text-smoke hover:text-gold">{{ $selection->market->fixture->name() }}</a>
+                            <a href="{{ route('matches.show', $selection->market->fixture) }}" x-on:click="$store.betslip.isOpen = false; $openMatch($event, {{ $selection->market->fixture->id }}, @js($selection->market->fixture->name()))" class="block truncate text-xs text-smoke hover:text-gold">{{ $selection->market->fixture->name() }}</a>
                         </div>
                         <div class="flex shrink-0 items-start gap-1">
                             <div class="text-right">
