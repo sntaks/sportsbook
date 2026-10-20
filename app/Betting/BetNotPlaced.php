@@ -23,6 +23,10 @@ class BetNotPlaced extends RuntimeException
 
     public const INSUFFICIENT_FUNDS = 'insufficient-funds';
 
+    public const FREE_BET_UNAVAILABLE = 'free-bet-unavailable';
+
+    public const FREE_BET_MIN_ODDS = 'free-bet-min-odds';
+
     public function __construct(public readonly string $reason, string $message)
     {
         parent::__construct($message);

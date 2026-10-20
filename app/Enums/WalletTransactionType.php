@@ -13,6 +13,8 @@ enum WalletTransactionType: string
     case Winnings = 'winnings';
     case StakeRefund = 'stake-refund';
     case WinningsTax = 'winnings-tax';
+    /** Paid with a winning multi's winnings, as its own entry (decision 42). */
+    case MultibetBonus = 'multibet-bonus';
     /** A corrected result: the earlier payout is taken back before the bet settles again. */
     case SettlementReversal = 'settlement-reversal';
     case JackpotEntry = 'jackpot-entry';
@@ -35,6 +37,7 @@ enum WalletTransactionType: string
             self::Winnings => __('Winnings'),
             self::StakeRefund => __('Stake returned'),
             self::WinningsTax => __('Tax on winnings'),
+            self::MultibetBonus => __('Multibet bonus'),
             self::SettlementReversal => __('Result corrected'),
             self::JackpotEntry => __('Jackpot entry'),
             self::JackpotPrize => __('Jackpot prize'),

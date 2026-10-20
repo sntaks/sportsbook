@@ -2,6 +2,7 @@
 
 use App\Enums\MpesaDepositStatus;
 use App\Enums\WithdrawalStatus;
+use App\Models\FreeBet;
 use App\Models\MpesaDeposit;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
@@ -96,6 +97,17 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
         return Withdrawal::query()->where('user_id', auth()->id())->latest('id')->limit(5)->get();
     }
 
+    /**
+     * The player's latest free bets, whatever happened to them.
+     *
+     * @return Collection<int, FreeBet>
+     */
+    #[Computed]
+    public function freeBets(): Collection
+    {
+        return FreeBet::query()->where('user_id', auth()->id())->latest('id')->limit(10)->get();
+    }
+
     #[Computed]
     public function watchedDeposit(): ?MpesaDeposit
     {
@@ -157,6 +169,33 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
             <a href="{{ route('responsible-gambling.settings') }}" wire:navigate class="text-xs font-medium text-gold hover:text-gold-bright">{{ __('Limits & breaks') }}</a>
         </div>
     </section>
+
+    @if ($this->freeBets->isNotEmpty())
+        <section class="glass-card p-5">
+            <h2 class="font-display text-lg font-bold text-ivory">{{ __('Free bets') }}</h2>
+            <p class="mt-1 text-sm text-smoke">{{ __('Choose one on your bet slip as the stake. If it wins you get the winnings above the stake.') }}</p>
+            <ul class="mt-3 divide-y divide-ink-700 text-sm" data-test="free-bets">
+                @foreach ($this->freeBets as $freeBet)
+                    <li class="flex items-center justify-between gap-4 py-3" wire:key="free-bet-{{ $freeBet->id }}">
+                        <div class="min-w-0">
+                            <p class="font-semibold tabular-nums text-ivory">{{ Money::format($freeBet->amount) }}</p>
+                            <p class="text-xs text-smoke">
+                                {{ __('Odds :odds or more', ['odds' => $freeBet->min_odds]) }}
+                                @if ($freeBet->isUsable())
+                                    · {{ __('use by :date', ['date' => $freeBet->expires_at->timezone(config('sportsbook.timezone'))->format('j M Y, H:i')]) }}
+                                @endif
+                            </p>
+                        </div>
+                        <span @class([
+                            'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                            'bg-gold/15 text-gold' => $freeBet->isUsable(),
+                            'bg-ink-700 text-smoke' => ! $freeBet->isUsable(),
+                        ])>{{ $freeBet->stateLabel() }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 
     <section class="glass-card p-5">
         <h1 class="font-display text-xl font-bold text-ivory">{{ __('Deposit with M-Pesa') }}</h1>

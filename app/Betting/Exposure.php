@@ -15,6 +15,9 @@ use Carbon\CarbonImmutable;
  * A pick's payout is the sum of the potential payouts of the open bets on it. For a multi that assumes every other
  * leg wins, so it is the worst case, not the expected cost. A slip holds at most one pick per match, so each bet is
  * counted once per match.
+ *
+ * Stakes are cash taken: a free bet's stake was never the player's money, and its potential payout is already only
+ * the winnings above it.
  */
 class Exposure
 {
@@ -34,7 +37,7 @@ class Exposure
             ->where('fixtures.status', FixtureStatus::Scheduled)
             ->whereNull('fixture_results.id')
             ->groupBy('bet_legs.fixture_id', 'bet_legs.market_name', 'bet_legs.selection_name')
-            ->selectRaw('bet_legs.fixture_id, bet_legs.market_name, bet_legs.selection_name, count(*) as bets, sum(bets.stake) as stakes, sum(bets.potential_payout) as payout')
+            ->selectRaw('bet_legs.fixture_id, bet_legs.market_name, bet_legs.selection_name, count(*) as bets, sum(case when bets.free_bet_id is null then bets.stake else 0 end) as stakes, sum(bets.potential_payout) as payout')
             ->toBase()
             ->get();
 

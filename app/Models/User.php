@@ -167,6 +167,14 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * @return HasMany<FreeBet, $this>
+     */
+    public function freeBets(): HasMany
+    {
+        return $this->hasMany(FreeBet::class);
+    }
+
+    /**
      * Excluded players can still take their money out; suspended players cannot.
      */
     public function canWithdraw(): bool

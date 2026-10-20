@@ -33,12 +33,20 @@ class BetInfolist
                 TextEntry::make('type')
                     ->formatStateUsing(fn (BetType $state): string => $state->label()),
                 TextEntry::make('stake')
-                    ->formatStateUsing(fn (int $state): string => Money::format($state)),
+                    ->formatStateUsing(fn (int $state): string => Money::format($state))
+                    ->badge(fn (Bet $record): bool => $record->isFreeBet())
+                    ->color(fn (Bet $record): ?string => $record->isFreeBet() ? 'warning' : null)
+                    ->helperText(fn (Bet $record): ?string => $record->isFreeBet() ? __('Free bet: no money left the wallet, and a win pays only the winnings above the stake.') : null),
                 TextEntry::make('total_odds')
                     ->label(__('Odds at placement')),
                 TextEntry::make('potential_payout')
                     ->label(__('To win'))
                     ->formatStateUsing(fn (int $state): string => Money::format($state)),
+                TextEntry::make('bonus_percent')
+                    ->label(__('Multibet bonus'))
+                    ->state(fn (Bet $record): string => $record->bonus_percent > 0
+                        ? __('+:percent%', ['percent' => $record->bonus_percent]).(($record->bonus ?? 0) > 0 ? ' · '.__(':amount paid', ['amount' => Money::format($record->bonus)]) : '')
+                        : '—'),
                 TextEntry::make('odds_change_policy')
                     ->label(__('Odds changes'))
                     ->formatStateUsing(fn (OddsChangePolicy $state): string => $state->label()),
@@ -56,7 +64,7 @@ class BetInfolist
                     ->timezone(config('sportsbook.timezone'))
                     ->placeholder('—'),
                 TextEntry::make('settlement_version')
-                    ->label(__('Times resettled'))
+                    ->label(__('Times reopened'))
                     ->helperText(__('Goes up each time a corrected result or a voided leg reopens the bet.')),
             ]);
     }

@@ -7,6 +7,7 @@ use App\Filament\Resources\Players\Pages\ListPlayers;
 use App\Filament\Resources\Players\Pages\ViewPlayer;
 use App\Filament\Resources\Players\RelationManagers\BetsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\DepositsRelationManager;
+use App\Filament\Resources\Players\RelationManagers\FreeBetsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\TransactionsRelationManager;
 use App\Filament\Resources\Players\RelationManagers\WithdrawalsRelationManager;
 use App\Filament\Resources\Players\Schemas\PlayerInfolist;
@@ -107,6 +108,7 @@ class PlayerResource extends Resource
         return [
             TransactionsRelationManager::class,
             BetsRelationManager::class,
+            FreeBetsRelationManager::class,
             DepositsRelationManager::class,
             WithdrawalsRelationManager::class,
         ];

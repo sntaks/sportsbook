@@ -305,6 +305,7 @@
                   "    pm.expect(quote.lines[0].status).to.eql('ok');",
                   "    pm.expect(quote.bettable_count).to.eql(1);",
                   "    pm.expect(quote.possible_win_cents).to.be.above(0);",
+                  "    pm.expect(quote.multibet_bonus.percent).to.eql(0);",
                   "});"
                 ]
               }
@@ -507,6 +508,92 @@
           "request": {
             "method": "GET",
             "url": { "raw": "{{base_url}}/bets/{{bet_reference}}", "host": ["{{base_url}}"], "path": ["bets", "{{bet_reference}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Free bets",
+      "description": "Free bets are given by staff from the admin. Bet with one by sending its id as free_bet_id, without a stake.",
+      "item": [
+        {
+          "name": "My free bets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with my free bets, paginated', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.meta.per_page).to.eql(20);",
+                  "    body.data.forEach(freeBet => pm.expect(freeBet.is_usable).to.be.a('boolean'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/free-bets",
+              "host": ["{{base_url}}"],
+              "path": ["free-bets"],
+              "query": [{ "key": "status", "value": "usable", "description": "usable: only those that can be bet with now", "disabled": true }]
+            }
+          }
+        },
+        {
+          "name": "Bet with a free bet that is not mine",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 with free-bet-unavailable', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().reason).to.eql('free-bet-unavailable');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": [\n        { \"fixture_id\": {{fixture_id}}, \"selection_id\": {{selection_id}}, \"price\": \"{{price}}\" }\n    ],\n    \"free_bet_id\": 999999999,\n    \"slip_key\": \"{{$guid}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/bets", "host": ["{{base_url}}"], "path": ["bets"] }
+          }
+        },
+        {
+          "name": "Bet with a stake and a free bet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 asking to leave out the stake', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().errors.free_bet_id).to.have.lengthOf(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": [\n        { \"fixture_id\": {{fixture_id}}, \"selection_id\": {{selection_id}}, \"price\": \"{{price}}\" }\n    ],\n    \"stake\": \"10\",\n    \"free_bet_id\": 999999999,\n    \"slip_key\": \"{{$guid}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/bets", "host": ["{{base_url}}"], "path": ["bets"] }
           }
         }
       ]

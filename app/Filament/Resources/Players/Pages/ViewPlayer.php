@@ -7,6 +7,7 @@ use App\Filament\CurrentAdmin;
 use App\Filament\Resources\Players\PlayerResource;
 use App\Models\Admin;
 use App\Models\User;
+use App\Promotions\GrantFreeBet;
 use App\Support\Money;
 use App\Wallet\AdjustBalance;
 use Filament\Actions\Action;
@@ -64,6 +65,39 @@ class ViewPlayer extends ViewRecord
                 ->action(fn (array $data) => CurrentAdmin::run(
                     fn (Admin $admin) => app(AdjustBalance::class)->handle($this->player(), $admin, Money::fromAmount($data['amount']), $data['reason']),
                     __('Balance adjusted'),
+                )),
+            Action::make('grantFreeBet')
+                ->label(__('Give free bet'))
+                ->icon(Heroicon::OutlinedGift)
+                ->color('gray')
+                ->authorize(fn (): bool => $this->can('grantFreeBet'))
+                ->modalDescription(__('The player uses it whole as the stake on one bet. A win pays the winnings above the stake, as cash.'))
+                ->schema([
+                    TextInput::make('amount')
+                        ->label(__('Amount (KES)'))
+                        ->integer()
+                        ->required()
+                        ->minValue((int) config('sportsbook.limits.min_stake'))
+                        ->maxValue((int) config('sportsbook.limits.max_stake')),
+                    TextInput::make('min_odds')
+                        ->label(__('Minimum total odds'))
+                        ->numeric()
+                        ->required()
+                        ->step(0.01)
+                        ->minValue(1.01)
+                        ->default(config('sportsbook.promotions.free_bets.min_odds')),
+                    TextInput::make('days')
+                        ->label(__('Days to use it'))
+                        ->integer()
+                        ->required()
+                        ->minValue(1)
+                        ->maxValue(90)
+                        ->default(config('sportsbook.promotions.free_bets.expiry_days')),
+                    Textarea::make('note')->label(__('Why'))->required()->maxLength(255),
+                ])
+                ->action(fn (array $data) => CurrentAdmin::run(
+                    fn (Admin $admin) => app(GrantFreeBet::class)->byAdmin($this->player(), $admin, Money::fromShillings((int) $data['amount']), (string) $data['min_odds'], now()->addDays((int) $data['days']), $data['note']),
+                    __('Free bet given'),
                 )),
         ];
     }

@@ -433,7 +433,7 @@
         "/slip/quote": {
             "post": {
                 "operationId": "v1.slip.quote",
-                "description": "Checks each pick against the current price and returns the combined odds and the possible win for `stake`.\nSend the picks again whenever they change; prices sent by the app are never trusted. A line whose price moved\nhas status `price_changed` and appears in `changed_prices` with its current price. Only the first pick per\nmatch counts.",
+                "description": "Checks each pick against the current price and returns the combined odds and the possible win for `stake`.\nSend the picks again whenever they change; prices sent by the app are never trusted. A line whose price moved\nhas status `price_changed` and appears in `changed_prices` with its current price. Only the first pick per\nmatch counts.\n\nThe possible win includes the multibet bonus the slip earns if every pick wins. To price a free bet, send its\namount as `stake` with `free_bet: true`: the possible win is then only the winnings above the stake, with no\nbonus.",
                 "summary": "Price a bet slip",
                 "tags": [
                     "Bet slip",
@@ -528,10 +528,55 @@
                                         },
                                         "possible_win_cents": {
                                             "type": "integer",
-                                            "description": "Possible win in cents, capped at the maximum payout."
+                                            "description": "Possible win in cents before tax, capped at the maximum payout, with the multibet bonus."
                                         },
                                         "is_payout_capped": {
                                             "type": "boolean"
+                                        },
+                                        "multibet_bonus": {
+                                            "type": "object",
+                                            "properties": {
+                                                "qualifying_picks": {
+                                                    "type": "integer",
+                                                    "description": "Picks priced high enough to count towards the bonus."
+                                                },
+                                                "percent": {
+                                                    "type": "integer"
+                                                },
+                                                "amount_cents": {
+                                                    "type": "integer",
+                                                    "description": "Included in `possible_win_cents`."
+                                                },
+                                                "min_price": {
+                                                    "type": "string"
+                                                },
+                                                "next_tier": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "description": "The next tier: how many more qualifying picks reach it, and its percent. Null at the top or with a free bet.",
+                                                    "properties": {
+                                                        "more_picks": {
+                                                            "type": "integer"
+                                                        },
+                                                        "percent": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "more_picks",
+                                                        "percent"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "qualifying_picks",
+                                                "percent",
+                                                "amount_cents",
+                                                "min_price",
+                                                "next_tier"
+                                            ]
                                         },
                                         "changed_prices": {
                                             "type": "string",
@@ -548,6 +593,7 @@
                                         "stake_errors",
                                         "possible_win_cents",
                                         "is_payout_capped",
+                                        "multibet_bonus",
                                         "changed_prices",
                                         "bettable_count"
                                     ]
@@ -896,7 +942,7 @@
             },
             "post": {
                 "operationId": "v1.bets.store",
-                "description": "One pick per match; more than one pick makes a multibet. Prices are checked again here: what happens when one\nmoved depends on `odds_change_policy` (the account's setting when left out). `slip_key` is any unique string\nper slip, up to 64 characters: sending the same slip again returns the bet already placed with a 200 instead\nof placing a second one.\n\nA refused bet is a 422 with a `reason` the app can act on: `not-allowed`, `empty-slip`, `unavailable`,\n`price-changed`, `duplicate-match`, `stake` or `insufficient-funds`.",
+                "description": "One pick per match; more than one pick makes a multibet. Prices are checked again here: what happens when one\nmoved depends on `odds_change_policy` (the account's setting when left out). `slip_key` is any unique string\nper slip, up to 64 characters: sending the same slip again returns the bet already placed with a 200 instead\nof placing a second one.\n\nTo bet with a free bet, send its `id` as `free_bet_id` and leave out `stake`: the free bet's whole amount is the\nstake and nothing leaves the wallet. A win pays only the winnings above the stake, and there is no multibet bonus.\n\nA refused bet is a 422 with a `reason` the app can act on: `not-allowed`, `empty-slip`, `unavailable`,\n`price-changed`, `duplicate-match`, `stake`, `insufficient-funds`, `free-bet-unavailable` (not the player's,\nalready used, void or expired) or `free-bet-min-odds`.",
                 "summary": "Place a bet",
                 "tags": [
                     "Bets",
@@ -1361,6 +1407,180 @@
                     }
                 },
                 "security": []
+            }
+        },
+        "/free-bets": {
+            "get": {
+                "operationId": "v1.free-bets.index",
+                "description": "Newest first, 20 a page. `status=usable` lists only those that can be bet with now, soonest to expire first.\nBet with one by sending its `id` as `free_bet_id` when placing a bet.",
+                "summary": "My free bets",
+                "tags": [
+                    "Free bets",
+                    "FreeBet"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "usable",
+                                null
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `FreeBetResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/FreeBetResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "current_page",
+                                                "from",
+                                                "last_page",
+                                                "links",
+                                                "path",
+                                                "per_page",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
             }
         },
         "/jackpots/current": {
@@ -2479,17 +2699,34 @@
                     "stake_cents": {
                         "type": "integer"
                     },
+                    "is_free_bet": {
+                        "type": "boolean",
+                        "description": "Placed with a free bet: no money left the wallet, and a win pays only the winnings above the stake."
+                    },
                     "total_odds": {
                         "type": "string"
                     },
                     "potential_payout_cents": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Before tax, with the multibet bonus if every pick wins."
+                    },
+                    "bonus_percent": {
+                        "type": "integer",
+                        "description": "The multibet bonus the bet qualified for when placed; 0 for none."
                     },
                     "payout_cents": {
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "description": "Cash paid, after tax."
+                    },
+                    "bonus_cents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Multibet bonus paid, before tax; included in `payout_cents`."
                     },
                     "odds_change_policy": {
                         "type": "string"
@@ -2516,9 +2753,12 @@
                     "status",
                     "status_label",
                     "stake_cents",
+                    "is_free_bet",
                     "total_odds",
                     "potential_payout_cents",
+                    "bonus_percent",
                     "payout_cents",
+                    "bonus_cents",
                     "odds_change_policy",
                     "placed_at",
                     "settled_at"
@@ -2842,6 +3082,63 @@
                 ],
                 "title": "ForgotPasswordRequest"
             },
+            "FreeBetResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "amount_cents": {
+                        "type": "integer"
+                    },
+                    "min_odds": {
+                        "type": "string"
+                    },
+                    "expires_at": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "available",
+                            "used",
+                            "expired",
+                            "void"
+                        ]
+                    },
+                    "status_label": {
+                        "type": "string"
+                    },
+                    "is_usable": {
+                        "type": "boolean"
+                    },
+                    "bet_reference": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The bet it was used on."
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "amount_cents",
+                    "min_odds",
+                    "expires_at",
+                    "status",
+                    "status_label",
+                    "is_usable",
+                    "bet_reference",
+                    "created_at"
+                ],
+                "title": "FreeBetResource"
+            },
             "JackpotEntryResource": {
                 "type": "object",
                 "properties": {
@@ -3154,7 +3451,7 @@
             },
             "PlaceBetRequest": {
                 "type": "object",
-                "description": "A bet slip to place. slip_key is generated once per slip by the app, so sending the same slip twice places it once.",
+                "description": "A bet slip to place. slip_key is generated once per slip by the app, so sending the same slip twice places it once.\nThe stake is either whole shillings or one of the player's free bets, never both.",
                 "properties": {
                     "picks": {
                         "type": "array",
@@ -3183,6 +3480,12 @@
                     "stake": {
                         "type": "string"
                     },
+                    "free_bet_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "odds_change_policy": {
                         "anyOf": [
                             {
@@ -3200,14 +3503,13 @@
                 },
                 "required": [
                     "picks",
-                    "stake",
                     "slip_key"
                 ],
                 "title": "PlaceBetRequest"
             },
             "QuoteSlipRequest": {
                 "type": "object",
-                "description": "Bet slip picks with the prices the player saw, and an optional stake in whole shillings.",
+                "description": "Bet slip picks with the prices the player saw, and an optional stake in whole shillings. free_bet prices the stake\nas a free bet: the possible win is then only the winnings above it, with no multibet bonus.",
                 "properties": {
                     "picks": {
                         "type": "array",
@@ -3238,6 +3540,9 @@
                             "number",
                             "null"
                         ]
+                    },
+                    "free_bet": {
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -3585,6 +3890,7 @@
                             "Winnings",
                             "Stake returned",
                             "Tax on winnings",
+                            "Multibet bonus",
                             "Result corrected",
                             "Jackpot entry",
                             "Jackpot prize",

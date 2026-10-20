@@ -16,4 +16,5 @@ enum AdminPermission: string
     case ViewBets = 'view bets';
     case SettleBets = 'settle bets';
     case ManageJackpots = 'manage jackpots';
+    case GrantFreeBets = 'grant free bets';
 }

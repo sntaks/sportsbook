@@ -8,6 +8,8 @@ use App\Enums\BetStatus;
 use App\Enums\WalletTransactionType;
 use App\Models\Bet;
 use App\Models\BetLeg;
+use App\Promotions\GrantFreeBet;
+use App\Promotions\MultibetBonus;
 use App\Support\Money;
 use App\Wallet\Ledger;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +21,17 @@ use Illuminate\Support\Facades\DB;
  *   leg counts as 1.00), capped at the maximum payout;
  * - every leg void: the stake goes back and the bet is void.
  *
+ * A free bet's stake was never the player's money: a win pays only the winnings above it, and an all-void bet gets a
+ * replacement free bet instead of a refund. A cash multi also gets the multibet bonus on its profit, by its winning
+ * legs priced high enough, never above the tier it qualified for when placed (decision 42). Tax is on the profit
+ * plus the bonus.
+ *
  * Payouts are keyed "bet-payout:{id}:{settlement version}", so a bet can only be paid once per settlement; a corrected
  * result reopens the bet under the next version (ReopenBet) after taking the earlier payout back.
  */
 class SettleBet
 {
-    public function __construct(private Ledger $ledger) {}
+    public function __construct(private Ledger $ledger, private GrantFreeBet $grantFreeBet) {}
 
     public function handle(Bet $bet): Bet
     {
@@ -50,6 +57,13 @@ class SettleBet
             $wonPrices = $legs->filter(fn (BetLeg $leg): bool => $leg->status === BetLegStatus::Won)->map(fn (BetLeg $leg): string => $leg->price);
             $key = "bet-payout:{$bet->id}:{$bet->settlement_version}";
 
+            if ($wonPrices->isEmpty() && $bet->isFreeBet()) {
+                $this->grantFreeBet->replacing($bet);
+                $bet->update(['status' => BetStatus::Void, 'payout' => 0, 'settled_at' => now()]);
+
+                return $bet;
+            }
+
             if ($wonPrices->isEmpty()) {
                 $refund = $this->ledger->post($bet->user, WalletTransactionType::StakeRefund, $bet->stake, $key, source: $bet, description: __('Bet :reference void', ['reference' => $bet->reference]));
                 $bet->update(['status' => BetStatus::Void, 'payout' => $bet->stake, 'payout_transaction_id' => $refund->id, 'settled_at' => now()]);
@@ -58,14 +72,25 @@ class SettleBet
             }
 
             $payout = Payout::for($bet->stake, Payout::combinedOdds($wonPrices));
-            $winnings = $this->ledger->post($bet->user, WalletTransactionType::Winnings, $payout, $key, source: $bet, description: __('Bet :reference won', ['reference' => $bet->reference]));
-            $tax = (int) round(max(0, $payout - $bet->stake) * (float) config('sportsbook.settlement.winnings_tax_rate'));
+            $winnings = $bet->isFreeBet() ? $payout - $bet->stake : $payout;
+            $bonus = MultibetBonus::amount($bet->stake, $payout, min($bet->bonus_percent, MultibetBonus::percentFor($wonPrices)));
+            $profit = $payout - $bet->stake + $bonus;
+            $tax = (int) round(max(0, $profit) * (float) config('sportsbook.settlement.winnings_tax_rate'));
+            $paid = $winnings > 0
+                ? $this->ledger->post($bet->user, WalletTransactionType::Winnings, $winnings, $key, source: $bet, description: $bet->isFreeBet()
+                    ? __('Free bet :reference won', ['reference' => $bet->reference])
+                    : __('Bet :reference won', ['reference' => $bet->reference]))
+                : null;
 
-            if ($tax > 0) {
-                $this->ledger->post($bet->user, WalletTransactionType::WinningsTax, -$tax, "bet-winnings-tax:{$bet->id}:{$bet->settlement_version}", source: $bet, description: __('Tax on :amount winnings', ['amount' => Money::format($payout - $bet->stake)]));
+            if ($bonus > 0) {
+                $this->ledger->post($bet->user, WalletTransactionType::MultibetBonus, $bonus, "bet-bonus:{$bet->id}:{$bet->settlement_version}", source: $bet, description: __('Bet :reference: multibet bonus', ['reference' => $bet->reference]));
             }
 
-            $bet->update(['status' => BetStatus::Won, 'payout' => $payout - $tax, 'payout_transaction_id' => $winnings->id, 'settled_at' => now()]);
+            if ($tax > 0) {
+                $this->ledger->post($bet->user, WalletTransactionType::WinningsTax, -$tax, "bet-winnings-tax:{$bet->id}:{$bet->settlement_version}", source: $bet, description: __('Tax on :amount winnings', ['amount' => Money::format($profit)]));
+            }
+
+            $bet->update(['status' => BetStatus::Won, 'payout' => $winnings + $bonus - $tax, 'bonus' => $bonus, 'payout_transaction_id' => $paid?->id, 'settled_at' => now()]);
 
             return $bet;
         });

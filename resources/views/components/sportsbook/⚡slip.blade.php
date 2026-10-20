@@ -8,8 +8,10 @@ use App\Betting\BookingCodes\ResolveBookingCode;
 use App\Betting\PlaceBet;
 use App\Enums\OddsChangePolicy;
 use App\Models\Bet;
+use App\Models\FreeBet;
 use App\Models\User;
 use App\Support\Money;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -34,6 +36,9 @@ new class extends Component {
     public string $codeToLoad = '';
 
     public string $oddsPolicy = 'higher';
+
+    /** The free bet chosen as the stake, or '' to pay with cash. */
+    public string $freeBetId = '';
 
     /** One per slip: submitting the same slip twice finds the bet already placed instead of placing another. */
     #[Locked]
@@ -103,11 +108,12 @@ new class extends Component {
         $this->refusal = null;
 
         try {
-            $bet = $placeBet->handle($user, $this->picks, trim($this->stake), OddsChangePolicy::tryFrom($this->oddsPolicy), $this->slipKey);
+            $freeBet = $this->selectedFreeBet;
+            $bet = $placeBet->handle($user, $this->picks, trim($this->stake), OddsChangePolicy::tryFrom($this->oddsPolicy), $this->slipKey, $freeBet?->id);
         } catch (BetNotPlaced $e) {
             $this->refusal = $e->reason;
             $this->addError('bet', $e->getMessage());
-            unset($this->quote);
+            unset($this->quote, $this->freeBets, $this->selectedFreeBet);
 
             return;
         }
@@ -115,6 +121,8 @@ new class extends Component {
         $this->placedBetId = $bet->id;
         $this->slipKey = (string) Str::uuid();
         $this->stake = '';
+        $this->freeBetId = '';
+        unset($this->freeBets, $this->selectedFreeBet);
         $this->dispatch('betslip-clear');
         $this->dispatch('wallet-updated');
     }
@@ -135,7 +143,37 @@ new class extends Component {
     #[Computed]
     public function quote(): BetSlipQuote
     {
-        return BetSlipQuote::for($this->picks, $this->stake, app(BettableSelections::class));
+        $freeBet = $this->selectedFreeBet;
+
+        return $freeBet === null
+            ? BetSlipQuote::for($this->picks, $this->stake, app(BettableSelections::class))
+            : BetSlipQuote::for($this->picks, (string) Money::toShillings($freeBet->amount), app(BettableSelections::class), isFreeBet: true);
+    }
+
+    /**
+     * The player's free bets that can be used now.
+     *
+     * @return Collection<int, FreeBet>
+     */
+    #[Computed]
+    public function freeBets(): Collection
+    {
+        $user = auth()->user();
+
+        return $user instanceof User ? $user->freeBets()->usable()->get() : new Collection;
+    }
+
+    #[Computed]
+    public function selectedFreeBet(): ?FreeBet
+    {
+        return $this->freeBetId === '' ? null : $this->freeBets->firstWhere('id', (int) $this->freeBetId);
+    }
+
+    public function updatedFreeBetId(): void
+    {
+        $this->resetErrorBag('bet');
+        $this->refusal = null;
+        unset($this->quote, $this->selectedFreeBet);
     }
 
     public function setStake(int $amount): void
@@ -262,7 +300,10 @@ new class extends Component {
             <dl class="mt-3 space-y-1.5 text-sm">
                 <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Bet ID') }}</dt><dd class="font-mono font-semibold tracking-wider text-ivory" data-test="bet-reference">{{ $placedBet->reference }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-smoke">{{ $placedBet->type->label() }}</dt><dd class="tabular-nums text-ivory">{{ __('Odds') }} {{ $placedBet->total_odds }}</dd></div>
-                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Stake') }}</dt><dd class="tabular-nums text-ivory">{{ Money::format($placedBet->stake) }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-smoke">{{ $placedBet->isFreeBet() ? __('Free bet stake') : __('Stake') }}</dt><dd class="tabular-nums text-ivory">{{ Money::format($placedBet->stake) }}</dd></div>
+                @if ($placedBet->bonus_percent > 0)
+                    <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Multibet bonus') }}</dt><dd class="tabular-nums text-ivory">+{{ $placedBet->bonus_percent }}%</dd></div>
+                @endif
                 <div class="flex justify-between gap-3"><dt class="text-smoke">{{ __('Possible win (before tax)') }}</dt><dd class="font-display font-bold tabular-nums text-gold">{{ Money::format($placedBet->potential_payout) }}</dd></div>
             </dl>
             <div class="mt-4 grid grid-cols-2 gap-2">
@@ -331,27 +372,61 @@ new class extends Component {
                 <span class="font-semibold tabular-nums text-ivory">{{ __('Odds') }} {{ number_format($quote->totalOdds, 2) }}</span>
             </div>
 
-            <label class="block">
-                <span class="text-xs text-smoke">{{ __('Stake (KES)') }}</span>
-                <input
-                    type="number"
-                    inputmode="numeric"
-                    step="1"
-                    min="{{ config('sportsbook.limits.min_stake') }}"
-                    max="{{ config('sportsbook.limits.max_stake') }}"
-                    wire:model.live.debounce.300ms="stake"
-                    class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 tabular-nums text-ivory focus:border-gold/50"
-                    placeholder="{{ config('sportsbook.limits.min_stake') }}"
-                >
-            </label>
-            <div class="grid grid-cols-4 gap-1.5">
-                @foreach ([50, 100, 500, 1000] as $amount)
-                    <button type="button" wire:click="setStake({{ $amount }})" class="min-h-9 rounded-md bg-ink-800 text-xs font-medium tabular-nums text-ivory hover:bg-ink-700">{{ number_format($amount) }}</button>
+            @php $freeBet = $this->selectedFreeBet; @endphp
+            @if ($this->freeBets->isNotEmpty())
+                <label class="block">
+                    <span class="text-xs text-smoke">{{ __('Free bets') }}</span>
+                    <select wire:model.live="freeBetId" class="mt-1 min-h-10 w-full rounded-lg border border-gold/40 bg-ink-800 px-2 text-sm text-ivory" data-test="free-bet">
+                        <option value="">{{ __('Pay with cash') }}</option>
+                        @foreach ($this->freeBets as $option)
+                            <option value="{{ $option->id }}">{{ __(':amount free bet · odds :odds+ · until :date', ['amount' => Money::format($option->amount), 'odds' => $option->min_odds, 'date' => $option->expires_at->timezone(config('sportsbook.timezone'))->format('j M, H:i')]) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            @endif
+
+            @if ($freeBet)
+                <div class="rounded-lg border border-gold/30 bg-gold/10 p-3 text-xs text-ivory" data-test="free-bet-terms">
+                    <p>{{ __('Your :amount free bet is the stake. If it wins you get the winnings above the stake.', ['amount' => Money::format($freeBet->amount)]) }}</p>
+                    @if ($quote->bettableCount() > 0 && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100))
+                        <p class="mt-1 text-live">{{ __('This free bet needs total odds of at least :odds.', ['odds' => $freeBet->min_odds]) }}</p>
+                    @endif
+                </div>
+            @else
+                <label class="block">
+                    <span class="text-xs text-smoke">{{ __('Stake (KES)') }}</span>
+                    <input
+                        type="number"
+                        inputmode="numeric"
+                        step="1"
+                        min="{{ config('sportsbook.limits.min_stake') }}"
+                        max="{{ config('sportsbook.limits.max_stake') }}"
+                        wire:model.live.debounce.300ms="stake"
+                        class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 tabular-nums text-ivory focus:border-gold/50"
+                        placeholder="{{ config('sportsbook.limits.min_stake') }}"
+                    >
+                </label>
+                <div class="grid grid-cols-4 gap-1.5">
+                    @foreach ([50, 100, 500, 1000] as $amount)
+                        <button type="button" wire:click="setStake({{ $amount }})" class="min-h-9 rounded-md bg-ink-800 text-xs font-medium tabular-nums text-ivory hover:bg-ink-700">{{ number_format($amount) }}</button>
+                    @endforeach
+                </div>
+                @foreach ($quote->stakeErrors as $error)
+                    <p class="text-xs text-live">{{ $error }}</p>
                 @endforeach
-            </div>
-            @foreach ($quote->stakeErrors as $error)
-                <p class="text-xs text-live">{{ $error }}</p>
-            @endforeach
+            @endif
+
+            @if ($quote->bonusPercent > 0)
+                <div class="flex items-baseline justify-between text-sm" data-test="multibet-bonus">
+                    <span class="text-smoke">{{ __('Multibet bonus +:percent%', ['percent' => $quote->bonusPercent]) }}</span>
+                    @if ($quote->stake !== null)
+                        <span class="tabular-nums text-ivory">KES {{ number_format($quote->bonus, 2) }}</span>
+                    @endif
+                </div>
+            @endif
+            @if ($quote->bettableCount() >= 2 && ($next = $quote->nextBonusTier()))
+                <p class="text-xs text-smoke" data-test="next-bonus">{{ trans_choice('{1} Add 1 more pick at odds :price+ for a :percent% bonus.|[2,*] Add :more more picks at odds :price+ for a :percent% bonus.', $next['more'], ['more' => $next['more'], 'price' => config('sportsbook.promotions.multibet_bonus.min_price'), 'percent' => $next['percent']]) }}</p>
+            @endif
 
             <div class="flex items-baseline justify-between">
                 <span class="text-sm text-smoke">{{ __('Possible win (before tax)') }}</span>
@@ -390,11 +465,11 @@ new class extends Component {
                         wire:click="placeBet"
                         wire:loading.attr="disabled"
                         wire:target="placeBet"
-                        @disabled($quote->bettableCount() === 0 || $quote->hasUnavailable() || $quote->stake === null || $quote->stakeErrors !== [])
+                        @disabled($quote->bettableCount() === 0 || $quote->hasUnavailable() || $quote->stake === null || $quote->stakeErrors !== [] || ($freeBet && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100)))
                         class="w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-smoke"
                         data-test="place-bet"
                     >
-                        <span wire:loading.remove wire:target="placeBet">{{ __('Place bet') }}</span>
+                        <span wire:loading.remove wire:target="placeBet">{{ $freeBet ? __('Place free bet') : __('Place bet') }}</span>
                         <span wire:loading wire:target="placeBet">{{ __('Placing…') }}</span>
                     </button>
                 @endif

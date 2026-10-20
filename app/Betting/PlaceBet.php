@@ -5,11 +5,14 @@ namespace App\Betting;
 use App\Enums\BetLegStatus;
 use App\Enums\BetStatus;
 use App\Enums\BetType;
+use App\Enums\FreeBetStatus;
 use App\Enums\OddsChangePolicy;
 use App\Enums\WalletTransactionType;
 use App\Models\Bet;
+use App\Models\FreeBet;
 use App\Models\Selection;
 use App\Models\User;
+use App\Promotions\MultibetBonus;
 use App\Support\Money;
 use App\Wallet\InsufficientFunds;
 use App\Wallet\Ledger;
@@ -25,6 +28,9 @@ use RuntimeException;
  * price that moved since the player added it must be acceptable under their odds-change setting. The bet is placed
  * at the current prices, and the stake leaves the wallet in the same transaction.
  *
+ * With a free bet, its whole amount is the stake and nothing leaves the wallet; the slip's total odds must reach the
+ * free bet's minimum. A cash multi records the multibet bonus it qualifies for (decision 42); a free bet gets none.
+ *
  * A slip key makes it safe to submit twice: the second submission returns the bet the first one placed.
  */
 class PlaceBet
@@ -38,10 +44,11 @@ class PlaceBet
 
     /**
      * @param  array<int, mixed>  $picks  [{fixture_id, selection_id, price}] as the slip holds them.
+     * @param  mixed  $stake  Whole shillings; ignored with a free bet, whose amount is the stake.
      *
      * @throws BetNotPlaced
      */
-    public function handle(User $user, array $picks, mixed $stake, ?OddsChangePolicy $policy = null, ?string $clientKey = null): Bet
+    public function handle(User $user, array $picks, mixed $stake, ?OddsChangePolicy $policy = null, ?string $clientKey = null, ?int $freeBetId = null): Bet
     {
         if (! $user->canBet()) {
             throw new BetNotPlaced(BetNotPlaced::NOT_ALLOWED, $user->isSuspended()
@@ -54,10 +61,10 @@ class PlaceBet
         }
 
         $policy ??= $user->odds_change_policy;
-        $stakeCents = $this->stake($stake);
+        $stakeCents = $freeBetId === null ? $this->stake($stake) : 0;
 
         try {
-            return DB::transaction(fn (): Bet => $this->place($user, $picks, $stakeCents, $policy, $clientKey));
+            return DB::transaction(fn (): Bet => $this->place($user, $picks, $stakeCents, $policy, $clientKey, $freeBetId));
         } catch (UniqueConstraintViolationException $e) {
             // The same slip submitted twice at once: the other request placed it.
             $placed = $clientKey === null ? null : $user->bets()->where('client_key', $clientKey)->first();
@@ -71,7 +78,7 @@ class PlaceBet
      *
      * @throws BetNotPlaced
      */
-    private function place(User $user, array $picks, int $stake, OddsChangePolicy $policy, ?string $clientKey): Bet
+    private function place(User $user, array $picks, int $stake, OddsChangePolicy $policy, ?string $clientKey, ?int $freeBetId): Bet
     {
         $requested = collect($picks)
             ->filter(fn (mixed $pick): bool => is_array($pick) && is_numeric($pick['selection_id'] ?? null))
@@ -87,10 +94,13 @@ class PlaceBet
             throw new BetNotPlaced(BetNotPlaced::EMPTY_SLIP, __('A bet can have at most :max selections.', ['max' => config('sportsbook.limits.max_selections')]));
         }
 
+        $freeBet = $freeBetId === null ? null : $this->freeBet($user, $freeBetId);
+        $stake = $freeBet->amount ?? $stake;
+
         // Locked until the bet is written, so a price cannot change between checking it and recording it.
         Selection::query()->whereKey($requested->all())->lockForUpdate()->get();
 
-        $quote = BetSlipQuote::for($picks, (string) Money::toShillings($stake), $this->bettableSelections);
+        $quote = BetSlipQuote::for($picks, (string) Money::toShillings($stake), $this->bettableSelections, $freeBet !== null);
 
         if (count($quote->lines) !== $requested->count()) {
             throw new BetNotPlaced(BetNotPlaced::DUPLICATE_MATCH, __('Each match can only appear once on a bet, and every selection must still exist.'));
@@ -110,16 +120,26 @@ class PlaceBet
             throw new BetNotPlaced(BetNotPlaced::STAKE, $quote->stakeErrors[0]);
         }
 
-        $odds = Payout::combinedOdds(collect($quote->lines)->map(fn (array $line): string => (string) $line['selection']->price()));
+        $prices = collect($quote->lines)->map(fn (array $line): string => (string) $line['selection']->price());
+        $odds = Payout::combinedOdds($prices);
+
+        if ($freeBet !== null && (int) round((float) $odds * 100) < (int) round((float) $freeBet->min_odds * 100)) {
+            throw new BetNotPlaced(BetNotPlaced::FREE_BET_MIN_ODDS, __('This free bet needs total odds of at least :odds.', ['odds' => $freeBet->min_odds]));
+        }
+
+        $payout = Payout::for($stake, $odds);
+        $bonusPercent = $freeBet === null ? MultibetBonus::percentFor($prices) : 0;
 
         $bet = Bet::create([
             'user_id' => $user->id,
+            'free_bet_id' => $freeBet?->id,
             'reference' => $this->reference(),
             'type' => count($quote->lines) === 1 ? BetType::Single : BetType::Multi,
             'status' => BetStatus::Open,
             'stake' => $stake,
             'total_odds' => $odds,
-            'potential_payout' => Payout::for($stake, $odds),
+            'potential_payout' => $freeBet !== null ? $payout - $stake : $payout + MultibetBonus::amount($stake, $payout, $bonusPercent),
+            'bonus_percent' => $bonusPercent,
             'odds_change_policy' => $policy,
             'client_key' => $clientKey,
             'placed_at' => now(),
@@ -145,6 +165,12 @@ class PlaceBet
             ]);
         }
 
+        if ($freeBet !== null) {
+            $freeBet->update(['status' => FreeBetStatus::Used, 'used_at' => now()]);
+
+            return $bet;
+        }
+
         try {
             $debit = $this->ledger->post($user, WalletTransactionType::Stake, -$stake, "bet-stake:{$bet->id}", source: $bet, description: __('Bet :reference', ['reference' => $bet->reference]));
         } catch (InsufficientFunds $e) {
@@ -154,6 +180,22 @@ class PlaceBet
         $bet->update(['stake_transaction_id' => $debit->id]);
 
         return $bet;
+    }
+
+    /**
+     * The player's free bet, locked so it can only be used once.
+     *
+     * @throws BetNotPlaced
+     */
+    private function freeBet(User $user, int $freeBetId): FreeBet
+    {
+        $freeBet = FreeBet::query()->whereKey($freeBetId)->where('user_id', $user->id)->lockForUpdate()->first();
+
+        if ($freeBet === null || ! $freeBet->isUsable()) {
+            throw new BetNotPlaced(BetNotPlaced::FREE_BET_UNAVAILABLE, __('That free bet can no longer be used.'));
+        }
+
+        return $freeBet;
     }
 
     /**

@@ -20,10 +20,10 @@ class AdminRoleSeeder extends Seeder
         'manager' => [
             AdminPermission::ViewActivityLog, AdminPermission::ManageCompetitions, AdminPermission::ManageOdds,
             AdminPermission::ViewPlayers, AdminPermission::ManagePlayers, AdminPermission::ApproveWithdrawals, AdminPermission::ReconcilePayments,
-            AdminPermission::ViewBets, AdminPermission::SettleBets, AdminPermission::ManageJackpots,
+            AdminPermission::ViewBets, AdminPermission::SettleBets, AdminPermission::ManageJackpots, AdminPermission::GrantFreeBets,
         ],
         'trader' => [AdminPermission::ManageOdds, AdminPermission::ViewBets, AdminPermission::SettleBets, AdminPermission::ManageJackpots],
-        'finance' => [AdminPermission::ViewPlayers, AdminPermission::ApproveWithdrawals, AdminPermission::AdjustBalances, AdminPermission::ReconcilePayments, AdminPermission::ViewBets],
+        'finance' => [AdminPermission::ViewPlayers, AdminPermission::ApproveWithdrawals, AdminPermission::AdjustBalances, AdminPermission::ReconcilePayments, AdminPermission::ViewBets, AdminPermission::GrantFreeBets],
         'support' => [AdminPermission::ViewPlayers, AdminPermission::ViewBets],
     ];
 

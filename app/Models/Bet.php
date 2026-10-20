@@ -19,13 +19,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property int $user_id
+ * @property int|null $free_bet_id Placed with this free bet: no money left the wallet for the stake.
  * @property string $reference
  * @property BetType $type
  * @property BetStatus $status
  * @property int $stake
  * @property string $total_odds
- * @property int $potential_payout Capped at the maximum payout.
- * @property int|null $payout
+ * @property int $potential_payout Capped at the maximum payout. Includes the multibet bonus; for a free bet, only the
+ *                                 winnings above the stake.
+ * @property int $bonus_percent The multibet bonus the bet qualified for when placed; 0 for none.
+ * @property int|null $payout Cash paid, net of tax.
+ * @property int|null $bonus Multibet bonus paid, before tax.
  * @property OddsChangePolicy $odds_change_policy
  * @property string|null $client_key
  * @property int|null $stake_transaction_id
@@ -36,7 +40,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['user_id', 'reference', 'type', 'status', 'stake', 'total_odds', 'potential_payout', 'payout', 'odds_change_policy', 'client_key', 'stake_transaction_id', 'payout_transaction_id', 'settlement_version', 'placed_at', 'settled_at'])]
+#[Fillable(['user_id', 'free_bet_id', 'reference', 'type', 'status', 'stake', 'total_odds', 'potential_payout', 'bonus_percent', 'payout', 'bonus', 'odds_change_policy', 'client_key', 'stake_transaction_id', 'payout_transaction_id', 'settlement_version', 'placed_at', 'settled_at'])]
 class Bet extends Model
 {
     /** @use HasFactory<BetFactory> */
@@ -55,7 +59,9 @@ class Bet extends Model
             'stake' => 'integer',
             'total_odds' => 'decimal:2',
             'potential_payout' => 'integer',
+            'bonus_percent' => 'integer',
             'payout' => 'integer',
+            'bonus' => 'integer',
             'settlement_version' => 'integer',
             'odds_change_policy' => OddsChangePolicy::class,
             'placed_at' => 'datetime',
@@ -69,6 +75,19 @@ class Bet extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return BelongsTo<FreeBet, $this>
+     */
+    public function freeBet(): BelongsTo
+    {
+        return $this->belongsTo(FreeBet::class);
+    }
+
+    public function isFreeBet(): bool
+    {
+        return $this->free_bet_id !== null;
     }
 
     /**
