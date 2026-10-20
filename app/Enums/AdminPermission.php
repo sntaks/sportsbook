@@ -15,4 +15,5 @@ enum AdminPermission: string
     case ReconcilePayments = 'reconcile payments';
     case ViewBets = 'view bets';
     case SettleBets = 'settle bets';
+    case ManageJackpots = 'manage jackpots';
 }

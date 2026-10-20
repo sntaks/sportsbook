@@ -15,6 +15,10 @@ enum WalletTransactionType: string
     case WinningsTax = 'winnings-tax';
     /** A corrected result: the earlier payout is taken back before the bet settles again. */
     case SettlementReversal = 'settlement-reversal';
+    case JackpotEntry = 'jackpot-entry';
+    case JackpotPrize = 'jackpot-prize';
+    /** The jackpot was cancelled: the entry price goes back. */
+    case JackpotRefund = 'jackpot-refund';
 
     /**
      * Name shown to the player in their transaction history.
@@ -32,6 +36,9 @@ enum WalletTransactionType: string
             self::StakeRefund => __('Stake returned'),
             self::WinningsTax => __('Tax on winnings'),
             self::SettlementReversal => __('Result corrected'),
+            self::JackpotEntry => __('Jackpot entry'),
+            self::JackpotPrize => __('Jackpot prize'),
+            self::JackpotRefund => __('Jackpot entry returned'),
         };
     }
 }

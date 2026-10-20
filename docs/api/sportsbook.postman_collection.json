@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Sportsbook API v1",
-    "description": "The mobile API. Run \"Auth / Log in\" first: it saves the token for every other request. The full contract is in openapi.json next to this file.\n\nThe folders \"Sign-up and password reset\" and \"Money and limits\" need a real SMS code or move money, start M-Pesa prompts or change responsible-gambling settings, so they are left out of the smoke run: run every other folder with `postman collection run docs/api/sportsbook.postman_collection.json -e docs/api/local.postman_environment.json -k -i Auth -i Catalogue -i \"Bet slip\" -i Bets -i Wallet -i Session`.",
+    "description": "The mobile API. Run \"Auth / Log in\" first: it saves the token for every other request. The full contract is in openapi.json next to this file.\n\nThe folders \"Sign-up and password reset\" and \"Money and limits\" need a real SMS code or move money, start M-Pesa prompts or change responsible-gambling settings, so they are left out of the smoke run: run every other folder with `postman collection run docs/api/sportsbook.postman_collection.json -e docs/api/local.postman_environment.json -k -i Auth -i Catalogue -i \"Bet slip\" -i Bets -i Jackpot -i Wallet -i Session`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -512,6 +512,125 @@
       ]
     },
     {
+      "name": "Jackpot",
+      "description": "Needs an open jackpot that is still taking entries: publish one in the admin first. Entering spends the entry price from the test player's wallet.",
+      "item": [
+        {
+          "name": "Current jackpot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the open jackpot and its matches', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const jackpot = pm.response.json().data;",
+                  "    pm.expect(jackpot.is_taking_entries).to.be.true;",
+                  "    pm.expect(jackpot.matches.length).to.be.above(0);",
+                  "    pm.environment.set('jackpot_id', jackpot.id);",
+                  "    pm.environment.set('jackpot_picks', JSON.stringify(jackpot.matches.map(match => ({ match_id: match.id, pick: '1' }))));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/jackpots/current", "host": ["{{base_url}}"], "path": ["jackpots", "current"] }
+          }
+        },
+        {
+          "name": "Enter the jackpot",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('entry_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 with an open entry', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const entry = pm.response.json().data;",
+                  "    pm.expect(entry.status).to.eql('open');",
+                  "    pm.expect(entry.jackpot.id).to.eql(pm.environment.get('jackpot_id'));",
+                  "    pm.environment.set('jackpot_entry_reference', entry.reference);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": {{jackpot_picks}},\n    \"entry_key\": \"{{entry_key}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/jackpots/{{jackpot_id}}/entries", "host": ["{{base_url}}"], "path": ["jackpots", "{{jackpot_id}}", "entries"] }
+          }
+        },
+        {
+          "name": "Enter again with the same key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the entry already made', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.reference).to.eql(pm.environment.get('jackpot_entry_reference'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": {{jackpot_picks}},\n    \"entry_key\": \"{{entry_key}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/jackpots/{{jackpot_id}}/entries", "host": ["{{base_url}}"], "path": ["jackpots", "{{jackpot_id}}", "entries"] }
+          }
+        },
+        {
+          "name": "My jackpot entries",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the new entry, paginated', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.meta.per_page).to.eql(20);",
+                  "    pm.expect(body.data.some(e => e.reference === pm.environment.get('jackpot_entry_reference'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/jackpot-entries", "host": ["{{base_url}}"], "path": ["jackpot-entries"] }
+          }
+        }
+      ]
+    },
+    {
       "name": "Wallet",
       "item": [
         {
@@ -545,9 +664,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('200 with the stake as the newest entry', () => {",
+                  "pm.test('200 with the bet stake as the newest stake entry', () => {",
                   "    pm.response.to.have.status(200);",
-                  "    pm.expect(pm.response.json().data[0].amount_cents).to.eql(-1000);",
+                  "    pm.expect(pm.response.json().data.find(t => t.type === 'stake').amount_cents).to.eql(-1000);",
                   "});"
                 ]
               }
