@@ -64,6 +64,29 @@ return [
             ]) : [],
         ],
 
+        // The admin reports read through this connection when DB_REPORTS_HOST is set (see sportsbook.reports): point it
+        // at a MySQL read replica so long report queries never slow bets and payments. Unset values fall back to the
+        // main connection's.
+        'reports' => [
+            'driver' => 'mysql',
+            'url' => env('DB_REPORTS_URL'),
+            'host' => env('DB_REPORTS_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('DB_REPORTS_PORT', env('DB_PORT', '3306')),
+            'database' => env('DB_REPORTS_DATABASE', env('DB_DATABASE', 'laravel')),
+            'username' => env('DB_REPORTS_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('DB_REPORTS_PASSWORD', env('DB_PASSWORD', '')),
+            'unix_socket' => env('DB_SOCKET', ''),
+            'charset' => env('DB_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
