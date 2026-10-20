@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Enums\PhoneCodePurpose;
 use App\Enums\PhoneCodeResult;
 use App\Models\User;
+use App\Promotions\ReferralCodes;
 use App\Support\PhoneNumber;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -29,29 +30,36 @@ class RegisterPlayer
     /**
      * Validate the sign-up details and send the code. Returns the normalized phone number.
      *
-     * @param  array{phone?: mixed, password?: mixed, password_confirmation?: mixed, adult?: mixed}  $input
+     * An invite code is optional; when referrals are switched off it is ignored.
+     *
+     * @param  array{phone?: mixed, password?: mixed, password_confirmation?: mixed, adult?: mixed, referral_code?: mixed}  $input
      *
      * @throws ValidationException
      */
     public function start(array $input, ?string $ip = null): string
     {
         $input['phone'] = PhoneNumber::normalize(is_string($input['phone'] ?? null) ? $input['phone'] : null);
+        $input['referral_code'] = ReferralCodes::enabled() ? ReferralCodes::normalize($input['referral_code'] ?? null) : null;
 
         $validated = Validator::make($input, [
             'phone' => ['required', 'regex:'.PhoneNumber::FORMAT, Rule::unique(User::class, 'phone')],
             'password' => $this->passwordRules(),
             'adult' => ['accepted'],
+            'referral_code' => ['nullable', 'string', Rule::exists(User::class, 'referral_code')],
         ], [
             'phone.regex' => __('Enter a valid Kenyan mobile number.'),
             'phone.unique' => __('This number already has an account. Log in instead.'),
             'adult.accepted' => __('You must be :age or older to sign up.', ['age' => config('sportsbook.minimum_age')]),
+            'referral_code.exists' => __('That invite code isn\'t valid.'),
         ])->safe();
 
         $phone = $validated->string('phone')->toString();
+        $referralCode = $validated->input('referral_code');
 
         Cache::put($this->pendingKey($phone), [
             'password' => Hash::make($validated->string('password')->toString()),
             'adult_confirmed_at' => now()->toIso8601String(),
+            'referrer_id' => $referralCode === null ? null : User::query()->where('referral_code', $referralCode)->value('id'),
         ], now()->addMinutes((int) config('sportsbook.phone_codes.ttl_minutes')));
 
         // Going back and resubmitting within the resend wait keeps the code already sent.
@@ -110,6 +118,7 @@ class RegisterPlayer
         $user->forceFill([
             'phone_verified_at' => now(),
             'adult_confirmed_at' => $pending['adult_confirmed_at'],
+            'referred_by_id' => $pending['referrer_id'] ?? null,
         ])->save();
 
         Cache::forget($this->pendingKey($phone));

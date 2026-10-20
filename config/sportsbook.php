@@ -266,6 +266,14 @@ return [
     | min_price; a leg count between tiers takes the tier below. Never on
     | free bets, and never past the maximum payout.
     |
+    | Referrals (decisions 44 and 49): the referrer gets a free bet once the
+    | player they invited, within window_days of signing up, has deposited
+    | min_deposit and staked min_stake in cash (bets not cancelled, plus
+    | jackpot entries not refunded). Deposits paid from the referrer's own
+    | number do not count. At most monthly_cap rewards a calendar month
+    | (EAT) per referrer. Amounts are whole shillings. REFERRALS_ENABLED=false
+    | stops new rewards and hides the invite box and code field.
+    |
     */
 
     'promotions' => [
@@ -278,6 +286,18 @@ return [
             'min_price' => '1.30',
             // Qualifying legs => percent.
             'tiers' => [3 => 3, 4 => 5, 5 => 7, 6 => 10, 8 => 15, 10 => 20, 15 => 35, 20 => 50],
+        ],
+        'referrals' => [
+            'enabled' => (bool) env('REFERRALS_ENABLED', true),
+            'window_days' => 30,
+            'min_deposit' => 100,
+            'min_stake' => 200,
+            'monthly_cap' => 10,
+            'reward' => [
+                'amount' => 100,
+                'min_odds' => '1.50',
+                'expiry_days' => 7,
+            ],
         ],
     ],
 

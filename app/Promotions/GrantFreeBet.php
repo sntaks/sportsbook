@@ -9,12 +9,14 @@ use App\Models\Bet;
 use App\Models\FreeBet;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\PhoneNumber;
 use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Gives a player a free bet: from staff, with their name and note in the activity log, or as a replacement when the
- * bet a free bet was used on ended void or was cancelled (the stake of a free bet never comes back as cash).
+ * Gives a player a free bet: from staff, with their name and note in the activity log; as a referral reward; or as a
+ * replacement when the bet a free bet was used on ended void or was cancelled (the stake of a free bet never comes back
+ * as cash).
  */
 class GrantFreeBet
 {
@@ -59,6 +61,23 @@ class GrantFreeBet
             ->log('Free bet given');
 
         return $freeBet;
+    }
+
+    /**
+     * The referrer's reward for inviting a player who went on to deposit and bet, on the terms in
+     * sportsbook.promotions.referrals.reward.
+     */
+    public function forReferral(User $referrer, User $referred): FreeBet
+    {
+        return FreeBet::create([
+            'user_id' => $referrer->id,
+            'amount' => Money::fromShillings((int) config('sportsbook.promotions.referrals.reward.amount')),
+            'min_odds' => (string) config('sportsbook.promotions.referrals.reward.min_odds'),
+            'expires_at' => now()->addDays((int) config('sportsbook.promotions.referrals.reward.expiry_days')),
+            'status' => FreeBetStatus::Available,
+            'source' => FreeBetSource::Referral,
+            'note' => __('For inviting :phone', ['phone' => PhoneNumber::mask($referred->phone)]),
+        ]);
     }
 
     /**

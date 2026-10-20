@@ -10,6 +10,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -32,6 +33,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property ExclusionType|null $exclusion_type
  * @property Carbon|null $excluded_until
  * @property OddsChangePolicy $odds_change_policy
+ * @property string|null $referral_code Made the first time the player opens their invite box.
+ * @property int|null $referred_by_id
  * @property string|null $name
  * @property string|null $email
  * @property Carbon|null $email_verified_at
@@ -172,6 +175,46 @@ class User extends Authenticatable implements PasskeyUser
     public function freeBets(): HasMany
     {
         return $this->hasMany(FreeBet::class);
+    }
+
+    /**
+     * The player who invited this one.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function referredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by_id');
+    }
+
+    /**
+     * The players this one invited.
+     *
+     * @return HasMany<User, $this>
+     */
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(User::class, 'referred_by_id');
+    }
+
+    /**
+     * What was decided for this player's referrer once this player qualified.
+     *
+     * @return HasOne<ReferralReward, $this>
+     */
+    public function referralOutcome(): HasOne
+    {
+        return $this->hasOne(ReferralReward::class, 'referred_id');
+    }
+
+    /**
+     * What was decided for each player this one invited who qualified.
+     *
+     * @return HasMany<ReferralReward, $this>
+     */
+    public function referralRewards(): HasMany
+    {
+        return $this->hasMany(ReferralReward::class, 'referrer_id');
     }
 
     /**

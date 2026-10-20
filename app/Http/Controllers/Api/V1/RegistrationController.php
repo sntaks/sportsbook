@@ -19,6 +19,8 @@ class RegistrationController extends Controller
      * Start signing up.
      *
      * Checks the details and texts a code to the phone. The account is created by verify once the code matches.
+     * An optional `referral_code` (from a friend's invite link, `?ref=`) links the new account to that friend; an
+     * unknown code returns 422.
      *
      * @unauthenticated
      */

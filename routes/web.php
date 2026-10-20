@@ -6,6 +6,7 @@ Route::livewire('/', 'pages::sportsbook.home')->name('home');
 Route::livewire('live', 'pages::sportsbook.live')->name('live');
 Route::livewire('jackpot', 'pages::sportsbook.jackpot')->name('jackpot');
 Route::livewire('promotions', 'pages::sportsbook.promotions')->name('promotions');
+Route::livewire('promotions/{promotion:slug}', 'pages::sportsbook.promotion')->name('promotions.show');
 Route::livewire('search', 'pages::sportsbook.search')->name('search');
 Route::livewire('competitions/{competition}', 'pages::sportsbook.competition')->name('competitions.show');
 Route::livewire('matches/{fixture}', 'pages::sportsbook.match')->whereNumber('fixture')->name('matches.show');

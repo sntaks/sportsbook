@@ -6,7 +6,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Sign-up details. RegisterPlayer checks the number, password strength and age.
+ * Sign-up details. RegisterPlayer checks the number, password strength, age and invite code.
  */
 class StartRegistrationRequest extends FormRequest
 {
@@ -25,6 +25,8 @@ class StartRegistrationRequest extends FormRequest
             'password' => ['required', 'string'],
             'password_confirmation' => ['required', 'string'],
             'adult' => ['required', 'boolean'],
+            /** A friend's invite code, if they invited the player. */
+            'referral_code' => ['nullable', 'string', 'max:20'],
         ];
     }
 }

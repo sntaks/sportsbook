@@ -6,6 +6,8 @@ use App\Models\FreeBet;
 use App\Models\MpesaDeposit;
 use App\Models\WalletTransaction;
 use App\Models\Withdrawal;
+use App\Promotions\ReferralCodes;
+use App\Promotions\ReferralSummary;
 use App\Support\Money;
 use App\Support\PhoneNumber;
 use App\Wallet\Deposits\StartDeposit;
@@ -106,6 +108,15 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
     public function freeBets(): Collection
     {
         return FreeBet::query()->where('user_id', auth()->id())->latest('id')->limit(10)->get();
+    }
+
+    /**
+     * The player's invite code, rewards and invited friends; null while referrals are switched off.
+     */
+    #[Computed]
+    public function invites(): ?ReferralSummary
+    {
+        return ReferralCodes::enabled() ? ReferralSummary::for(auth()->user()) : null;
     }
 
     #[Computed]
@@ -346,6 +357,51 @@ new #[Layout('layouts::sportsbook')] #[Title('Wallet')] class extends Component 
             </ul>
         @endif
     </section>
+
+    @if ($invites = $this->invites)
+        <section id="invite" class="glass-card scroll-mt-24 p-5" data-test="invite-friends">
+            <h2 class="font-display text-lg font-bold text-ivory">{{ __('Invite friends') }}</h2>
+            <p class="mt-1 text-sm text-smoke">{{ ReferralSummary::terms() }}</p>
+
+            <div class="mt-4" x-data="{ copied: false, link: @js($invites->link), text: @js(__('Join me on :app with my invite code :code', ['app' => config('app.name'), 'code' => $invites->code])) }">
+                <p class="text-xs text-smoke">{{ __('Your invite code') }}</p>
+                <p class="font-display text-2xl font-bold tracking-[0.2em] text-gold" data-test="invite-code">{{ $invites->code }}</p>
+                <p class="mt-1 break-all text-xs text-smoke">{{ $invites->link }}</p>
+                <div class="mt-3 grid grid-cols-3 gap-1.5 text-xs">
+                    <a target="_blank" rel="noopener" :href="'https://wa.me/?text=' + encodeURIComponent(text + ' ' + link)" class="min-h-10 rounded-md bg-ink-800 py-2.5 text-center text-ivory hover:bg-ink-700">WhatsApp</a>
+                    <a :href="'sms:?&body=' + encodeURIComponent(text + ' ' + link)" class="min-h-10 rounded-md bg-ink-800 py-2.5 text-center text-ivory hover:bg-ink-700">SMS</a>
+                    <button type="button" x-on:click="navigator.clipboard.writeText(link); copied = true" class="min-h-10 rounded-md bg-ink-800 py-2.5 text-ivory hover:bg-ink-700">
+                        <span x-text="copied ? @js(__('Copied')) : @js(__('Copy link'))">{{ __('Copy link') }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <p class="mt-4 text-sm text-ivory" data-test="invite-rewards">
+                {{ __('Rewards this month: :count of :cap', ['count' => $invites->rewardsThisMonth, 'cap' => $invites->monthlyCap]) }}
+            </p>
+
+            @if ($invites->friends->isNotEmpty())
+                <ul class="mt-3 divide-y divide-ink-700 text-sm" data-test="invited-friends">
+                    @foreach ($invites->friends as $friend)
+                        <li class="flex items-center justify-between gap-4 py-2.5" wire:key="friend-{{ $friend->id }}">
+                            <div class="min-w-0">
+                                <p class="tabular-nums text-ivory">{{ PhoneNumber::mask($friend->phone) }}</p>
+                                <p class="text-xs text-smoke">{{ ReferralSummary::friendStatusLabel($friend) }}</p>
+                            </div>
+                            <span @class([
+                                'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                'bg-gold/15 text-gold' => ReferralSummary::friendStatus($friend) === 'rewarded',
+                                'bg-ink-700 text-smoke' => ReferralSummary::friendStatus($friend) !== 'rewarded',
+                            ])>{{ __('Joined :date', ['date' => $friend->created_at?->timezone(config('sportsbook.timezone'))->format('j M')]) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+                @if ($invites->invitedCount > $invites->friends->count())
+                    <p class="mt-2 text-xs text-smoke">{{ __('Showing your latest :shown of :count invited friends.', ['shown' => $invites->friends->count(), 'count' => $invites->invitedCount]) }}</p>
+                @endif
+            @endif
+        </section>
+    @endif
 
     <section class="glass-card p-5">
         <h2 class="font-display text-lg font-bold text-ivory">{{ __('Transactions') }}</h2>

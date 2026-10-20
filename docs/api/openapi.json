@@ -98,7 +98,7 @@
         "/auth/register": {
             "post": {
                 "operationId": "v1.auth.register",
-                "description": "Checks the details and texts a code to the phone. The account is created by verify once the code matches.",
+                "description": "Checks the details and texts a code to the phone. The account is created by verify once the code matches.\nAn optional `referral_code` (from a friend's invite link, `?ref=`) links the new account to that friend; an\nunknown code returns 422.",
                 "summary": "Start signing up",
                 "tags": [
                     "Auth",
@@ -1908,6 +1908,196 @@
                 }
             }
         },
+        "/promotions": {
+            "get": {
+                "operationId": "v1.promotions.index",
+                "description": "The promotions players can see now, in the order staff set. Ask for one by `slug` for its full text.",
+                "summary": "Running promotions",
+                "tags": [
+                    "Promotions",
+                    "Promotion"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `PromotionResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PromotionResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/promotions/{promotion}": {
+            "get": {
+                "operationId": "v1.promotions.show",
+                "description": "With its full text as Markdown and as HTML. A 404 means there is no running promotion with that slug.",
+                "summary": "A promotion",
+                "tags": [
+                    "Promotions",
+                    "Promotion"
+                ],
+                "parameters": [
+                    {
+                        "name": "promotion",
+                        "in": "path",
+                        "required": true,
+                        "description": "The promotion slug",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`PromotionResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PromotionResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/me/referral": {
+            "get": {
+                "operationId": "v1.me.referral",
+                "description": "The player's invite code and link, the rules, how many rewards they have had this month against the limit, and\ntheir latest 20 invited friends (numbers masked). Friends sign up with the code as `referral_code`, or through\nthe link. A friend's `status` is `waiting` (still has time to qualify), `expired`, `rewarded`, `capped` (over the\nmonthly limit) or `ineligible` (betting was paused on this account when they qualified). A 404 means\ninvites are switched off.",
+                "summary": "My invites",
+                "tags": [
+                    "Referrals",
+                    "Referral"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "link": {
+                                            "type": "string"
+                                        },
+                                        "terms": {
+                                            "type": "string"
+                                        },
+                                        "rewards_this_month": {
+                                            "type": "integer"
+                                        },
+                                        "monthly_cap": {
+                                            "type": "integer"
+                                        },
+                                        "invited_count": {
+                                            "type": "integer"
+                                        },
+                                        "friends": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "phone": {
+                                                        "anyOf": [
+                                                            {
+                                                                "type": "string"
+                                                            },
+                                                            {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "****"
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "joined_at": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "waiting",
+                                                            "expired",
+                                                            "rewarded",
+                                                            "capped",
+                                                            "ineligible"
+                                                        ]
+                                                    },
+                                                    "status_label": {
+                                                        "type": "string"
+                                                    },
+                                                    "qualify_by": {
+                                                        "type": "string",
+                                                        "description": "When a waiting friend's time to qualify runs out."
+                                                    }
+                                                },
+                                                "required": [
+                                                    "phone",
+                                                    "joined_at",
+                                                    "status",
+                                                    "status_label",
+                                                    "qualify_by"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "link",
+                                        "terms",
+                                        "rewards_this_month",
+                                        "monthly_cap",
+                                        "invited_count",
+                                        "friends"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/deposit-limits": {
             "get": {
                 "operationId": "v1.deposit-limits.index",
@@ -3507,6 +3697,59 @@
                 ],
                 "title": "PlaceBetRequest"
             },
+            "PromotionResource": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "image_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Absolute URL of the banner image, about twice as wide as tall."
+                    },
+                    "starts_at": {
+                        "type": "string"
+                    },
+                    "ends_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Null when it runs until staff take it down."
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "The page on the website."
+                    },
+                    "body_markdown": {
+                        "type": "string",
+                        "description": "The body as Markdown, as staff wrote it. Only on a single promotion."
+                    },
+                    "body_html": {
+                        "type": "string",
+                        "description": "The body as HTML, with any HTML staff typed and any unsafe links removed. Only on a single promotion."
+                    }
+                },
+                "required": [
+                    "slug",
+                    "title",
+                    "summary",
+                    "image_url",
+                    "starts_at",
+                    "ends_at",
+                    "url"
+                ],
+                "title": "PromotionResource"
+            },
             "QuoteSlipRequest": {
                 "type": "object",
                 "description": "Bet slip picks with the prices the player saw, and an optional stake in whole shillings. free_bet prices the stake\nas a free bet: the possible win is then only the winnings above it, with no multibet bonus.",
@@ -3655,7 +3898,7 @@
             },
             "StartRegistrationRequest": {
                 "type": "object",
-                "description": "Sign-up details. RegisterPlayer checks the number, password strength and age.",
+                "description": "Sign-up details. RegisterPlayer checks the number, password strength, age and invite code.",
                 "properties": {
                     "phone": {
                         "type": "string"
@@ -3668,6 +3911,14 @@
                     },
                     "adult": {
                         "type": "boolean"
+                    },
+                    "referral_code": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "A friend's invite code, if they invited the player.",
+                        "maxLength": 20
                     }
                 },
                 "required": [

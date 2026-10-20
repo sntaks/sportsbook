@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Players\Schemas;
 
+use App\Enums\ReferralRewardStatus;
 use App\Enums\UserStatus;
+use App\Filament\Resources\Players\PlayerResource;
 use App\Models\DepositLimit;
 use App\Models\User;
 use App\Support\Money;
@@ -36,6 +38,17 @@ class PlayerInfolist
                             ->state(fn (User $record): string => $record->isExcluded()
                                 ? __(':type until :date', ['type' => $record->exclusion_type?->label(), 'date' => $record->excluded_until?->timezone(config('sportsbook.timezone'))->format('j M Y, H:i')])
                                 : __('None')),
+                        TextEntry::make('referredBy.phone')
+                            ->label(__('Invited by'))
+                            ->url(fn (User $record): ?string => $record->referredBy === null ? null : PlayerResource::getUrl('view', ['record' => $record->referredBy]))
+                            ->color('primary')
+                            ->placeholder('—'),
+                        TextEntry::make('referrals_count')
+                            ->label(__('Friends invited'))
+                            ->state(fn (User $record): string => __(':count (:rewarded rewarded)', [
+                                'count' => $record->referrals()->count(),
+                                'rewarded' => $record->referralRewards()->where('status', ReferralRewardStatus::Rewarded)->count(),
+                            ])),
                         TextEntry::make('deposit_limits')
                             ->label(__('Deposit limits'))
                             ->state(fn (User $record): array => self::limits($record))
