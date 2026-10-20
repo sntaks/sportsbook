@@ -19,4 +19,5 @@ enum AdminPermission: string
     case GrantFreeBets = 'grant free bets';
     case ManagePromotions = 'manage promotions';
     case ViewReports = 'view reports';
+    case ExportData = 'export data';
 }

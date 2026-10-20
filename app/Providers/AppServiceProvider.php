@@ -7,10 +7,12 @@ use App\Accounts\Sms\SmsSender;
 use App\Accounts\Sms\TextSmsSender;
 use App\Enums\AdminPermission;
 use App\Enums\AdminRole;
+use App\Filament\Actions\ExportActions;
 use App\Models\Admin;
 use App\Models\Sport;
 use App\Models\User;
 use App\Policies\ActivityPolicy;
+use App\Policies\ExportPolicy;
 use App\Policies\PlayerPolicy;
 use App\Sportsbook\OddsApi\CreditBudget;
 use App\Sportsbook\OddsApi\LiveOddsApi;
@@ -19,10 +21,12 @@ use App\Sportsbook\OddsApi\ReplayOddsApi;
 use App\Sportsbook\Pricing\ConsensusPricer;
 use App\Sportsbook\Pricing\Derived\DerivedMarketPricer;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Exports\Models\Export;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -72,6 +76,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureAdminAuthorization();
+        $this->configureExports();
         $this->configureSportsbookViews();
         $this->configureRateLimiting();
     }
@@ -128,6 +133,29 @@ class AppServiceProvider extends ServiceProvider
             && $user->hasRole(AdminRole::SuperAdmin->value)
             ? true
             : null);
+    }
+
+    /**
+     * Staff exports belong to admins, not users. Downloads are checked by ExportPolicy, and starting an export is
+     * written to the activity log with the filters in use.
+     */
+    protected function configureExports(): void
+    {
+        Export::polymorphicUserRelationship();
+        Gate::policy(Export::class, ExportPolicy::class);
+
+        Export::created(function (Export $export): void {
+            activity('exports')
+                ->performedOn($export)
+                ->causedBy($export->user)
+                ->event('export')
+                ->withProperties([
+                    'exporter' => class_basename($export->exporter),
+                    'rows' => $export->total_rows,
+                    'filters' => Context::getHidden(ExportActions::FILTERS_CONTEXT_KEY, []),
+                ])
+                ->log('Export started');
+        });
     }
 
     /**

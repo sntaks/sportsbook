@@ -37,6 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(config('app.name').' Admin')
             ->font('Outfit')
             ->darkMode(isForced: true)
+            ->databaseNotifications()
             ->colors([
                 'primary' => Color::hex('#f5c542'),
                 'success' => Color::hex('#32c850'),

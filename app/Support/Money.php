@@ -38,6 +38,14 @@ class Money
         return $sign.config('sportsbook.currency.code').' '.number_format(abs($cents) / self::minorUnits(), 2);
     }
 
+    /**
+     * 125050 -> "1250.50": a plain number for spreadsheets, with no currency or thousands separator.
+     */
+    public static function decimal(int $cents): string
+    {
+        return number_format($cents / self::minorUnits(), 2, '.', '');
+    }
+
     private static function minorUnits(): int
     {
         return (int) config('sportsbook.currency.minor_units');

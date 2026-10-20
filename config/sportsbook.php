@@ -304,4 +304,22 @@ return [
         'max_days' => 366,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Exports
+    |--------------------------------------------------------------------------
+    |
+    | Staff exports (bets, deposits, withdrawals, ledger) run on the queue and
+    | are written to this private disk; only the admin who ran one can
+    | download it. Files and their records are deleted after retention_days.
+    | The queue worker and the web server must share the disk, so use S3 or
+    | similar once there is more than one server.
+    |
+    */
+
+    'exports' => [
+        'disk' => env('EXPORTS_DISK', 'local'),
+        'retention_days' => 7,
+    ],
+
 ];

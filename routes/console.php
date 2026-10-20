@@ -43,3 +43,8 @@ Schedule::command('sportsbook:suspend-stale')
 Schedule::command('sanctum:prune-expired --hours=24')
     ->daily()
     ->onOneServer();
+
+// Staff exports carry players' phone numbers: files and their records go after sportsbook.exports.retention_days.
+Schedule::command('exports:prune')
+    ->daily()
+    ->onOneServer();
