@@ -1,0 +1,803 @@
+{
+  "info": {
+    "name": "Sportsbook API v1",
+    "description": "The mobile API. Run \"Auth / Log in\" first: it saves the token for every other request. The full contract is in openapi.json next to this file.\n\nThe folders \"Sign-up and password reset\" and \"Money and limits\" need a real SMS code or move money, start M-Pesa prompts or change responsible-gambling settings, so they are left out of the smoke run: run every other folder with `postman collection run docs/api/sportsbook.postman_collection.json -e docs/api/local.postman_environment.json -k -i Auth -i Catalogue -i \"Bet slip\" -i Bets -i Wallet -i Session`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Log in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with a bearer token', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.token_type).to.eql('Bearer');",
+                  "    pm.expect(body.token).to.be.a('string');",
+                  "    pm.expect(body.user.phone).to.be.a('string');",
+                  "    pm.environment.set('token', body.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"{{phone}}\",\n    \"password\": \"{{password}}\",\n    \"device_name\": \"Postman\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the account', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const user = pm.response.json().data;",
+                  "    pm.expect(user).to.have.property('balance_cents');",
+                  "    pm.expect(user).to.have.property('can_bet');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+          }
+        },
+        {
+          "name": "Me without a token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+          }
+        },
+        {
+          "name": "Set odds change policy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the new policy', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.odds_change_policy).to.eql('higher');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"odds_change_policy\": \"higher\"\n}" },
+            "url": { "raw": "{{base_url}}/me/odds-change-policy", "host": ["{{base_url}}"], "path": ["me", "odds-change-policy"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalogue",
+      "item": [
+        {
+          "name": "Sports",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with sports and competitions', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const sports = pm.response.json().data;",
+                  "    pm.expect(sports).to.be.an('array').that.is.not.empty;",
+                  "    pm.environment.set('competition_slug', sports[0].competitions[0].slug);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/sports", "host": ["{{base_url}}"], "path": ["sports"] }
+          }
+        },
+        {
+          "name": "Fixtures",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with matches and a priced pick to bet on', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const fixture = pm.response.json().data.find(f => f.market && f.market.is_open && f.market.selections.some(s => s.price));",
+                  "    pm.expect(fixture, 'a match with an open, priced 1X2 market').to.exist;",
+                  "    const selection = fixture.market.selections.find(s => s.price);",
+                  "    pm.environment.set('fixture_id', fixture.id);",
+                  "    pm.environment.set('team', fixture.home_team);",
+                  "    pm.environment.set('selection_id', selection.id);",
+                  "    pm.environment.set('price', selection.price);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/fixtures?tab=upcoming&market=h2h",
+              "host": ["{{base_url}}"],
+              "path": ["fixtures"],
+              "query": [
+                { "key": "tab", "value": "upcoming", "description": "highlights, today, tomorrow or upcoming" },
+                { "key": "market", "value": "h2h", "description": "h2h, double_chance, totals:2.5 or btts" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fixtures in a competition",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with only that competition', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const slug = pm.environment.get('competition_slug');",
+                  "    pm.response.json().data.forEach(f => pm.expect(f.competition.slug).to.eql(slug));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/fixtures?competition={{competition_slug}}",
+              "host": ["{{base_url}}"],
+              "path": ["fixtures"],
+              "query": [{ "key": "competition", "value": "{{competition_slug}}" }]
+            }
+          }
+        },
+        {
+          "name": "Live",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with a list', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/fixtures/live", "host": ["{{base_url}}"], "path": ["fixtures", "live"] }
+          }
+        },
+        {
+          "name": "Search",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 and finds the team', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const team = pm.environment.get('team');",
+                  "    pm.expect(pm.response.json().data.some(f => f.home_team === team || f.away_team === team)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/fixtures/search?q={{team}}",
+              "host": ["{{base_url}}"],
+              "path": ["fixtures", "search"],
+              "query": [{ "key": "q", "value": "{{team}}" }]
+            }
+          }
+        },
+        {
+          "name": "A match",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with markets in tabs', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const match = pm.response.json().data;",
+                  "    pm.expect(match.id).to.eql(Number(pm.environment.get('fixture_id')));",
+                  "    pm.expect(match.tabs[0].key).to.eql('main');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/fixtures/{{fixture_id}}", "host": ["{{base_url}}"], "path": ["fixtures", "{{fixture_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bet slip",
+      "item": [
+        {
+          "name": "Quote",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the pick priced', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const quote = pm.response.json();",
+                  "    pm.expect(quote.lines[0].status).to.eql('ok');",
+                  "    pm.expect(quote.bettable_count).to.eql(1);",
+                  "    pm.expect(quote.possible_win_cents).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": [\n        { \"fixture_id\": {{fixture_id}}, \"selection_id\": {{selection_id}}, \"price\": \"{{price}}\" }\n    ],\n    \"stake\": \"10\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/slip/quote", "host": ["{{base_url}}"], "path": ["slip", "quote"] }
+          }
+        },
+        {
+          "name": "Share as a booking code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 with a code', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.match(/^[A-Z2-9]{6}$/);",
+                  "    pm.environment.set('booking_code', body.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"selection_ids\": [{{selection_id}}]\n}" },
+            "url": { "raw": "{{base_url}}/booking-codes", "host": ["{{base_url}}"], "path": ["booking-codes"] }
+          }
+        },
+        {
+          "name": "Load a booking code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the saved pick', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const picks = pm.response.json().picks;",
+                  "    pm.expect(picks[0].selection_id).to.eql(Number(pm.environment.get('selection_id')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/booking-codes/{{booking_code}}", "host": ["{{base_url}}"], "path": ["booking-codes", "{{booking_code}}"] }
+          }
+        },
+        {
+          "name": "Load an unknown booking code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 with a message', () => {",
+                  "    pm.response.to.have.status(404);",
+                  "    pm.expect(pm.response.json().message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/booking-codes/ZZZZZZ", "host": ["{{base_url}}"], "path": ["booking-codes", "ZZZZZZ"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bets",
+      "item": [
+        {
+          "name": "Place a bet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('slip_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 with an open bet', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    const bet = pm.response.json().data;",
+                  "    pm.expect(bet.status).to.eql('open');",
+                  "    pm.expect(bet.stake_cents).to.eql(1000);",
+                  "    pm.environment.set('bet_reference', bet.reference);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": [\n        { \"fixture_id\": {{fixture_id}}, \"selection_id\": {{selection_id}}, \"price\": \"{{price}}\" }\n    ],\n    \"stake\": \"10\",\n    \"slip_key\": \"{{slip_key}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/bets", "host": ["{{base_url}}"], "path": ["bets"] }
+          }
+        },
+        {
+          "name": "Place the same slip again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the bet already placed', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.reference).to.eql(pm.environment.get('bet_reference'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"picks\": [\n        { \"fixture_id\": {{fixture_id}}, \"selection_id\": {{selection_id}}, \"price\": \"{{price}}\" }\n    ],\n    \"stake\": \"10\",\n    \"slip_key\": \"{{slip_key}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/bets", "host": ["{{base_url}}"], "path": ["bets"] }
+          }
+        },
+        {
+          "name": "My open bets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the new bet, paginated', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.meta.per_page).to.eql(20);",
+                  "    pm.expect(body.data.some(b => b.reference === pm.environment.get('bet_reference'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/bets?status=open",
+              "host": ["{{base_url}}"],
+              "path": ["bets"],
+              "query": [{ "key": "status", "value": "open", "description": "open or settled; leave out for all" }]
+            }
+          }
+        },
+        {
+          "name": "A bet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with its legs', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.legs).to.have.lengthOf(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/bets/{{bet_reference}}", "host": ["{{base_url}}"], "path": ["bets", "{{bet_reference}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet",
+      "item": [
+        {
+          "name": "Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the balance and bounds', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const wallet = pm.response.json();",
+                  "    pm.expect(wallet.balance_cents).to.be.a('number');",
+                  "    pm.expect(wallet.min_deposit).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/wallet", "host": ["{{base_url}}"], "path": ["wallet"] }
+          }
+        },
+        {
+          "name": "Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with the stake as the newest entry', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data[0].amount_cents).to.eql(-1000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/wallet/transactions", "host": ["{{base_url}}"], "path": ["wallet", "transactions"] }
+          }
+        },
+        {
+          "name": "My withdrawals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with a list', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/withdrawals", "host": ["{{base_url}}"], "path": ["withdrawals"] }
+          }
+        },
+        {
+          "name": "Deposit limits",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with daily, weekly and monthly', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.map(l => l.period)).to.eql(['daily', 'weekly', 'monthly']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/deposit-limits", "host": ["{{base_url}}"], "path": ["deposit-limits"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sign-up and password reset",
+      "description": "Needs the code texted to the phone. With SMS_DRIVER=log the code is in storage/logs.",
+      "item": [
+        {
+          "name": "Start sign-up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202: the code was texted', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"{{new_phone}}\",\n    \"password\": \"{{password}}\",\n    \"password_confirmation\": \"{{password}}\",\n    \"adult\": true\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Resend sign-up code",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"phone\": \"{{new_phone}}\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/register/resend", "host": ["{{base_url}}"], "path": ["auth", "register", "resend"] }
+          }
+        },
+        {
+          "name": "Finish sign-up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 with a bearer token', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.environment.set('token', pm.response.json().token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"{{new_phone}}\",\n    \"code\": \"{{code}}\",\n    \"device_name\": \"Postman\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/register/verify", "host": ["{{base_url}}"], "path": ["auth", "register", "verify"] }
+          }
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"phone\": \"{{phone}}\"\n}" },
+            "url": { "raw": "{{base_url}}/auth/forgot-password", "host": ["{{base_url}}"], "path": ["auth", "forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"{{phone}}\",\n    \"code\": \"{{code}}\",\n    \"password\": \"{{password}}\",\n    \"password_confirmation\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/auth/reset-password", "host": ["{{base_url}}"], "path": ["auth", "reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Money and limits",
+      "description": "Sends M-Pesa requests or changes responsible-gambling settings that cannot be undone at once (raised limits wait 24 hours; a break cannot be shortened). Not part of the smoke run.",
+      "item": [
+        {
+          "name": "Deposit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set('deposit_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"amount\": 100\n}" },
+            "url": { "raw": "{{base_url}}/deposits", "host": ["{{base_url}}"], "path": ["deposits"] }
+          }
+        },
+        {
+          "name": "Deposit status",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/deposits/{{deposit_id}}", "host": ["{{base_url}}"], "path": ["deposits", "{{deposit_id}}"] }
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"amount\": 100\n}" },
+            "url": { "raw": "{{base_url}}/withdrawals", "host": ["{{base_url}}"], "path": ["withdrawals"] }
+          }
+        },
+        {
+          "name": "Set a deposit limit",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"amount\": 5000\n}" },
+            "url": { "raw": "{{base_url}}/deposit-limits/daily", "host": ["{{base_url}}"], "path": ["deposit-limits", "daily"] }
+          }
+        },
+        {
+          "name": "Take a break",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"cool-off\",\n    \"duration\": \"24h\",\n    \"password\": \"{{password}}\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/exclusions", "host": ["{{base_url}}"], "path": ["exclusions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session",
+      "item": [
+        {
+          "name": "Log out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] }
+          }
+        },
+        {
+          "name": "Me after logging out",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401: the token was revoked', () => pm.response.to.have.status(401));",
+                  "pm.environment.unset('token');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] }
+          }
+        }
+      ]
+    }
+  ]
+}

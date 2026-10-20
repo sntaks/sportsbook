@@ -1,8 +1,8 @@
 <?php
 
-use App\Enums\MarketType;
 use App\Models\Fixture;
 use App\Models\Market;
+use App\Sportsbook\Catalogue\MarketTabs;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -11,16 +11,6 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Layout('layouts::sportsbook')] class extends Component {
-    /**
-     * Market tabs on the match page and the market types each one shows.
-     */
-    public const TABS = [
-        'main' => ['label' => 'Main', 'types' => [MarketType::MatchResult, MarketType::DoubleChance, MarketType::DrawNoBet]],
-        'goals' => ['label' => 'Goals', 'types' => [MarketType::Totals, MarketType::BothTeamsToScore]],
-        'correct-score' => ['label' => 'Correct Score', 'types' => [MarketType::CorrectScore]],
-        'half-time' => ['label' => 'Half-time', 'types' => [MarketType::HalfTimeFullTime]],
-    ];
-
     public Fixture $fixture;
 
     #[Url(except: 'main')]
@@ -36,7 +26,7 @@ new #[Layout('layouts::sportsbook')] class extends Component {
 
     public function updated(): void
     {
-        $this->tab = array_key_exists($this->tab, self::TABS) ? $this->tab : 'main';
+        $this->tab = array_key_exists($this->tab, MarketTabs::TABS) ? $this->tab : 'main';
     }
 
     /**
@@ -45,19 +35,12 @@ new #[Layout('layouts::sportsbook')] class extends Component {
     #[Computed]
     public function marketsByTab(): Collection
     {
-        $markets = $this->fixture->markets()->with('selections')->get();
-
-        return collect(self::TABS)
-            ->map(fn (array $tab) => $markets
-                ->filter(fn (Market $market): bool => in_array($market->type, $tab['types'], true) && $market->selections->isNotEmpty())
-                ->sortBy(fn (Market $market): string => array_search($market->type, $tab['types'], true).'-'.str_pad((string) $market->line, 6, '0', STR_PAD_LEFT))
-                ->values())
-            ->filter(fn ($markets) => $markets->isNotEmpty());
+        return MarketTabs::group($this->fixture->markets()->with('selections')->get());
     }
 
     public function tabLabel(string $key): string
     {
-        return __(self::TABS[$key]['label'] ?? $key);
+        return MarketTabs::label($key);
     }
 
     public function render(): View

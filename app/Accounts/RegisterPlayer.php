@@ -61,12 +61,19 @@ class RegisterPlayer
     }
 
     /**
-     * Send another code to a number that has started signing up.
+     * Send another code to a number that has started signing up. A number with no sign-up waiting gets no SMS,
+     * so this cannot be used to text strangers.
      *
      * @throws ValidationException
      */
     public function resend(string $phone, ?string $ip = null): void
     {
+        $phone = (string) PhoneNumber::normalize($phone);
+
+        if (! Cache::has($this->pendingKey($phone))) {
+            throw ValidationException::withMessages(['phone' => __(PhoneCodeResult::Expired->message())]);
+        }
+
         $this->sendCode($phone, $ip);
     }
 

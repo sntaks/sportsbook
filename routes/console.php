@@ -38,3 +38,8 @@ Schedule::command('sportsbook:suspend-stale')
     ->everyFiveMinutes()
     ->withoutOverlapping(10)
     ->onOneServer();
+
+// Mobile API tokens last 90 days; expired ones are deleted a day after they lapse.
+Schedule::command('sanctum:prune-expired --hours=24')
+    ->daily()
+    ->onOneServer();
