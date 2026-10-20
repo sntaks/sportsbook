@@ -11,6 +11,27 @@ test('profile page is displayed', function () {
     $this->get(route('profile.edit'))->assertOk()->assertSee('0712 *** 678');
 });
 
+test('account settings use the player layout, with tabs for profile, security and limits', function () {
+    $this->actingAs(User::factory()->create());
+
+    $this->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee('data-test="settings-nav"', false)
+        ->assertSeeInOrder([route('profile.edit'), route('security.edit'), route('responsible-gambling.settings')])
+        ->assertSee(route('my-bets'));
+
+    $this->get(route('responsible-gambling.settings'))->assertOk()->assertSee('data-test="settings-nav"', false);
+    $this->get('settings/appearance')->assertNotFound();
+});
+
+test('the settings tab stays marked as current after the page updates', function () {
+    $this->actingAs(User::factory()->create());
+
+    Livewire::test('pages::settings.profile')
+        ->call('updateProfileInformation')
+        ->assertSeeHtmlInOrder([route('profile.edit'), 'aria-current="page"', route('security.edit')]);
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 

@@ -13,3 +13,5 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+{{-- The player site is dark only: overrides a light or system choice saved by Flux, which would turn its menus and modals light. --}}
+<script>window.Flux.applyAppearance('dark')</script>
