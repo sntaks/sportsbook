@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BetLegStatus;
 use App\Enums\FixtureStatus;
+use App\Enums\JackpotStatus;
 use App\Enums\MarketType;
 use Carbon\CarbonImmutable;
 use Database\Factories\FixtureFactory;
@@ -92,6 +93,16 @@ class Fixture extends Model
         return $this->hasMany(BetLeg::class);
     }
 
+    /**
+     * This fixture's place in each jackpot it is part of.
+     *
+     * @return HasMany<JackpotFixture, $this>
+     */
+    public function jackpotFixtures(): HasMany
+    {
+        return $this->hasMany(JackpotFixture::class);
+    }
+
     public function name(): string
     {
         return "{$this->home_team} v {$this->away_team}";
@@ -130,7 +141,8 @@ class Fixture extends Model
     }
 
     /**
-     * Fixtures that kicked off long enough ago to be over, with open bets waiting on a result nobody has recorded.
+     * Fixtures that kicked off long enough ago to be over, with open bets or an open jackpot waiting on a result
+     * nobody has recorded.
      *
      * @param  Builder<self>  $query
      */
@@ -139,6 +151,11 @@ class Fixture extends Model
     {
         $query->where('kicks_off_at', '<=', now()->subMinutes((int) config('sportsbook.settlement.result_after_minutes')))
             ->whereDoesntHave('result')
-            ->whereHas('betLegs', fn (Builder $legs) => $legs->where('status', BetLegStatus::Open));
+            ->where(fn (Builder $waiting) => $waiting
+                ->whereHas('betLegs', fn (Builder $legs) => $legs->where('status', BetLegStatus::Open))
+                ->orWhereHas('jackpotFixtures', fn (Builder $jackpotFixtures) => $jackpotFixtures
+                    ->where('is_void', false)
+                    ->whereNull('outcome')
+                    ->whereHas('jackpot', fn (Builder $jackpots) => $jackpots->where('status', JackpotStatus::Open))));
     }
 }

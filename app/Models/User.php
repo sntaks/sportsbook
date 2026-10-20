@@ -159,6 +159,14 @@ class User extends Authenticatable implements PasskeyUser
     }
 
     /**
+     * @return HasMany<JackpotEntry, $this>
+     */
+    public function jackpotEntries(): HasMany
+    {
+        return $this->hasMany(JackpotEntry::class);
+    }
+
+    /**
      * Excluded players can still take their money out; suspended players cannot.
      */
     public function canWithdraw(): bool

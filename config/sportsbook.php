@@ -231,4 +231,25 @@ return [
         'winnings_tax_rate' => (float) env('SPORTSBOOK_WINNINGS_TAX_RATE', 0),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Jackpot
+    |--------------------------------------------------------------------------
+    |
+    | Defaults for a new jackpot; an admin can change each one per jackpot
+    | while it is a draft. Amounts are whole shillings. Each tier's pool is
+    | split equally between the entries with exactly that many right; more
+    | void matches than void_limit cancels the jackpot and refunds everyone.
+    |
+    */
+
+    'jackpot' => [
+        'entry_price' => 99,
+        // Matches right => prize pool.
+        'prize_tiers' => [17 => 1_000_000, 16 => 100_000, 15 => 20_000],
+        'void_limit' => 3,
+        'min_matches' => 13,
+        'max_matches' => 17,
+    ],
+
 ];

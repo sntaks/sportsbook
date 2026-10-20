@@ -65,7 +65,7 @@ class MarketRules
     /**
      * "1" home win, "X" draw, "2" away win.
      */
-    private static function resultCode(int $home, int $away): string
+    public static function resultCode(int $home, int $away): string
     {
         return match (true) {
             $home > $away => '1',

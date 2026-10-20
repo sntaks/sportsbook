@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\DepositController;
 use App\Http\Controllers\Api\V1\DepositLimitController;
 use App\Http\Controllers\Api\V1\ExclusionController;
 use App\Http\Controllers\Api\V1\FixtureController;
+use App\Http\Controllers\Api\V1\JackpotController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\SessionController;
@@ -40,6 +41,8 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
     Route::post('booking-codes', [BookingCodeController::class, 'store'])->middleware('throttle:booking-codes-create')->name('booking-codes.store');
     Route::get('booking-codes/{code}', [BookingCodeController::class, 'show'])->middleware('throttle:booking-codes-show')->name('booking-codes.show');
 
+    Route::get('jackpots/current', [JackpotController::class, 'current'])->name('jackpots.current');
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AccountController::class, 'show'])->name('me');
         Route::put('me/odds-change-policy', [AccountController::class, 'updateOddsPolicy'])->name('me.odds-change-policy');
@@ -47,6 +50,9 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
         Route::get('bets', [BetController::class, 'index'])->name('bets.index');
         Route::post('bets', [BetController::class, 'store'])->name('bets.store');
         Route::get('bets/{reference}', [BetController::class, 'show'])->name('bets.show');
+
+        Route::post('jackpots/{jackpot}/entries', [JackpotController::class, 'enter'])->whereNumber('jackpot')->name('jackpots.entries.store');
+        Route::get('jackpot-entries', [JackpotController::class, 'entries'])->name('jackpot-entries.index');
 
         Route::get('wallet', [WalletController::class, 'show'])->name('wallet.show');
         Route::get('wallet/transactions', [WalletController::class, 'transactions'])->name('wallet.transactions');

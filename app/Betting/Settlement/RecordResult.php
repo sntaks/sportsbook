@@ -2,6 +2,7 @@
 
 namespace App\Betting\Settlement;
 
+use App\Betting\Jackpot\RecordJackpotResult;
 use App\Enums\BetLegStatus;
 use App\Enums\FixtureStatus;
 use App\Models\Admin;
@@ -12,14 +13,14 @@ use App\Models\FixtureResult;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Records a fixture's result, from the scores feed or an admin, and settles every bet leg on it.
+ * Records a fixture's result, from the scores feed or an admin, and settles every bet leg and jackpot match on it.
  *
  * Recording a result again (a correction, adding the half-time score, or voiding the match) first reopens the bets
  * that the earlier result settled, taking back what they paid, and then settles them on the new result.
  */
 class RecordResult
 {
-    public function __construct(private ReopenBet $reopenBet, private SettleBet $settleBet) {}
+    public function __construct(private ReopenBet $reopenBet, private SettleBet $settleBet, private RecordJackpotResult $recordJackpotResult) {}
 
     /**
      * @param  array{home_score?: int|null, away_score?: int|null, half_time_home_score?: int|null, half_time_away_score?: int|null, is_void?: bool, note?: string|null}  $result
@@ -48,6 +49,7 @@ class RecordResult
             $fixture->update(['status' => $recorded->is_void ? FixtureStatus::Cancelled : FixtureStatus::Scheduled]);
 
             $counts = $this->settle($fixture, $recorded);
+            $this->recordJackpotResult->handle($fixture, $recorded);
 
             activity('settlement')
                 ->causedBy($admin)

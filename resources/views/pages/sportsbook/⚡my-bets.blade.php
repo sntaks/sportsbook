@@ -2,7 +2,9 @@
 
 use App\Enums\BetLegStatus;
 use App\Enums\BetStatus;
+use App\Enums\JackpotEntryStatus;
 use App\Models\Bet;
+use App\Models\JackpotEntry;
 use App\Support\Money;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
@@ -15,13 +17,13 @@ use Livewire\WithPagination;
 new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component {
     use WithPagination;
 
-    /** "open" or "settled". */
+    /** "open", "settled" or "jackpot". */
     #[Url]
     public string $tab = 'open';
 
     public function show(string $tab): void
     {
-        $this->tab = $tab === 'settled' ? 'settled' : 'open';
+        $this->tab = in_array($tab, ['settled', 'jackpot'], true) ? $tab : 'open';
         $this->resetPage();
     }
 
@@ -41,11 +43,25 @@ new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component
             ->latest('id')
             ->paginate(10);
     }
+
+    /**
+     * @return LengthAwarePaginator<int, JackpotEntry>
+     */
+    #[Computed]
+    public function jackpotEntries(): LengthAwarePaginator
+    {
+        return JackpotEntry::query()
+            ->where('user_id', auth()->id())
+            ->with(['jackpot', 'picks.jackpotFixture'])
+            ->latest('placed_at')
+            ->latest('id')
+            ->paginate(10);
+    }
 }; ?>
 
 <div class="mx-auto max-w-3xl space-y-4">
     <div class="flex gap-2" role="tablist">
-        @foreach (['open' => __('Open bets'), 'settled' => __('Settled')] as $key => $label)
+        @foreach (['open' => __('Open bets'), 'settled' => __('Settled'), 'jackpot' => __('Jackpot')] as $key => $label)
             <button
                 type="button"
                 role="tab"
@@ -60,7 +76,73 @@ new #[Layout('layouts::sportsbook')] #[Title('My bets')] class extends Component
         @endforeach
     </div>
 
-    @if ($this->bets->isEmpty())
+    @if ($tab === 'jackpot')
+        @forelse ($this->jackpotEntries as $entry)
+            <article class="glass-card overflow-hidden" wire:key="jackpot-entry-{{ $entry->id }}" data-test="jackpot-entry-{{ $entry->reference }}">
+                <header class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-700 px-4 py-3">
+                    <div>
+                        <p class="text-sm font-semibold text-ivory">{{ $entry->jackpot->name }}</p>
+                        <p class="text-xs text-smoke">
+                            {{ __('Entry ID') }} <span class="font-mono tracking-wider text-ivory">{{ $entry->reference }}</span>
+                            · {{ $entry->placed_at->timezone(config('sportsbook.timezone'))->format('j M Y, H:i') }}
+                        </p>
+                    </div>
+                    <span @class([
+                        'rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        'bg-gold/15 text-gold' => $entry->status === JackpotEntryStatus::Open,
+                        'bg-win/15 text-win' => $entry->status === JackpotEntryStatus::Won,
+                        'bg-live/15 text-live' => $entry->status === JackpotEntryStatus::Lost,
+                        'bg-ink-700 text-smoke' => $entry->status === JackpotEntryStatus::Refunded,
+                    ])>{{ $entry->status->label() }}</span>
+                </header>
+
+                <ol class="divide-y divide-ink-700">
+                    @foreach ($entry->picks->sortBy(fn ($pick) => $pick->jackpotFixture->position) as $pick)
+                        @php($isRight = $pick->jackpotFixture->judge($pick->pick))
+                        <li class="flex items-center justify-between gap-3 px-4 py-2" wire:key="jackpot-pick-{{ $pick->id }}">
+                            <p class="min-w-0 truncate text-sm text-ivory">
+                                <span class="mr-1 tabular-nums text-smoke-dim">{{ $pick->jackpotFixture->position }}.</span>{{ $pick->jackpotFixture->fixture_name }}
+                            </p>
+                            <p class="shrink-0 text-right text-xs">
+                                <span @class([
+                                    'inline-block min-w-7 rounded-md px-1.5 py-0.5 text-center font-semibold',
+                                    'bg-ink-700 text-ivory' => $isRight === null,
+                                    'bg-win/15 text-win' => $isRight === true,
+                                    'bg-live/15 text-live' => $isRight === false,
+                                ])>{{ $pick->pick }}</span>
+                                @if ($pick->jackpotFixture->is_void)
+                                    <span class="ml-1 text-smoke-dim">{{ __('Void') }}</span>
+                                @elseif ($pick->jackpotFixture->outcome !== null)
+                                    <span class="ml-1 text-smoke">{{ __('Result :outcome', ['outcome' => $pick->jackpotFixture->outcome]) }}</span>
+                                @endif
+                            </p>
+                        </li>
+                    @endforeach
+                </ol>
+
+                <footer class="grid grid-cols-3 gap-2 border-t border-ink-700 px-4 py-3 text-sm">
+                    <div>
+                        <p class="text-xs text-smoke">{{ __('Entry') }}</p>
+                        <p class="tabular-nums text-ivory">{{ Money::format($entry->stake) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-smoke">{{ __('Right') }}</p>
+                        <p class="tabular-nums text-ivory">{{ $entry->correct_count ?? '—' }} / {{ $entry->picks->count() }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-smoke">{{ $entry->status === JackpotEntryStatus::Refunded ? __('Refunded') : __('Paid') }}</p>
+                        <p @class(['tabular-nums font-semibold', 'text-win' => ($entry->prize ?? 0) > 0 && $entry->status === JackpotEntryStatus::Won, 'text-ivory' => $entry->status !== JackpotEntryStatus::Won])>{{ $entry->status->isSettled() ? Money::format($entry->prize ?? 0) : '—' }}</p>
+                    </div>
+                </footer>
+            </article>
+        @empty
+            <x-sportsbook.empty-state icon="ticket" :title="__('No jackpot entries yet')">
+                {{ __('Jackpot entries you make will be listed here with how each pick did.') }}
+            </x-sportsbook.empty-state>
+        @endforelse
+
+        <div>{{ $this->jackpotEntries->links() }}</div>
+    @elseif ($this->bets->isEmpty())
         <x-sportsbook.empty-state icon="clipboard-document-list" :title="$tab === 'open' ? __('No open bets') : __('No settled bets yet')">
             {{ $tab === 'open' ? __('Bets you place will be listed here until they are settled.') : __('Bets move here once every match on them has a result.') }}
         </x-sportsbook.empty-state>

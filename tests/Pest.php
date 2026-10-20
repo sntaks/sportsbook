@@ -1,11 +1,14 @@
 <?php
 
 use App\Accounts\Sms\SmsSender;
+use App\Betting\Jackpot\EnterJackpot;
 use App\Betting\PlaceBet;
 use App\Enums\WalletTransactionType;
 use App\Models\Bet;
 use App\Models\Competition;
 use App\Models\Fixture;
+use App\Models\Jackpot;
+use App\Models\JackpotEntry;
 use App\Models\Market;
 use App\Models\Selection;
 use App\Models\User;
@@ -307,4 +310,34 @@ function bettor(int $cents = 100_000): User
 function betOn(User $player, array $picks, string $stake = '100'): Bet
 {
     return app(PlaceBet::class)->handle($player, array_map(fn (array $pick): array => slipPick(selectionFor($pick[0], $pick[1])), $picks), $stake);
+}
+
+/**
+ * An open KES 99 jackpot on three upcoming matches: KES 10,000 shared by entries with all three right, KES 1,000
+ * by entries with two. One void match is allowed.
+ */
+function openJackpot(int $matches = 3): Jackpot
+{
+    return Jackpot::factory()->open()->withMatches($matches)->create()->load('jackpotFixtures.fixture');
+}
+
+/**
+ * Enter the jackpot with picks in match order, e.g. ['1', 'X', '2'].
+ *
+ * @param  list<string>  $picks
+ */
+function enterJackpot(User $player, Jackpot $jackpot, array $picks, ?string $clientKey = null): JackpotEntry
+{
+    return app(EnterJackpot::class)->handle($player, $jackpot, jackpotPicks($jackpot, $picks), $clientKey);
+}
+
+/**
+ * Picks in match order keyed by jackpot match id, as the page and the API send them.
+ *
+ * @param  list<string>  $picks
+ * @return array<int, string>
+ */
+function jackpotPicks(Jackpot $jackpot, array $picks): array
+{
+    return $jackpot->jackpotFixtures()->pluck('id')->combine($picks)->all();
 }
