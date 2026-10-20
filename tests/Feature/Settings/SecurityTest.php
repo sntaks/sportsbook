@@ -29,7 +29,7 @@ test('security settings page can be rendered', function () {
     $response->assertSee('Passkeys');
     $response->assertSee('No passkeys yet');
     $response->assertSee('Two-factor authentication');
-    $response->assertSee('Enable 2FA');
+    $response->assertSee('Turn on');
 });
 
 test('security settings page requires password confirmation when enabled', function () {
@@ -50,9 +50,8 @@ test('security settings page renders without two factor when feature is disabled
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('security.edit'))
         ->assertOk()
-        ->assertSee('Update password')
-        ->assertDontSee('Manage your passkeys for passwordless sign-in')
-        ->assertDontSee('Add a passkey to sign in without a password')
+        ->assertSee('Change password')
+        ->assertDontSee('Log in with your fingerprint')
         ->assertDontSee('Two-factor authentication');
 });
 

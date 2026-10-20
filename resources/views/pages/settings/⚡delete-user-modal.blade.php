@@ -35,25 +35,28 @@ new class extends Component {
 }; ?>
 
 <flux:modal name="confirm-user-deletion" :show="$errors->isNotEmpty()" focusable class="max-w-lg">
-    <form method="POST" wire:submit="deleteUser" class="space-y-6">
+    <form method="POST" wire:submit="deleteUser" class="space-y-5">
         <div>
-            <flux:heading size="lg">{{ __('Are you sure you want to delete your account?') }}</flux:heading>
-
-            <flux:subheading>
-                {{ __('Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.') }}
-            </flux:subheading>
+            <h2 class="font-display text-lg font-bold text-ivory">{{ __('Delete your account?') }}</h2>
+            <p class="mt-1 text-sm text-smoke">{{ __('Your account and its data are deleted for good. Enter your password to confirm.') }}</p>
         </div>
 
-        <flux:input wire:model="password" :label="__('Password')" type="password" viewable />
+        <label class="block">
+            <span class="text-xs text-smoke">{{ __('Password') }}</span>
+            <input type="password" wire:model="password" autocomplete="current-password" class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 text-ivory focus:border-gold/50">
+        </label>
+        @error('password')
+            <p class="text-xs text-live">{{ $message }}</p>
+        @enderror
 
-        <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+        <div class="flex justify-end gap-2">
             <flux:modal.close>
-                <flux:button variant="filled">{{ __('Cancel') }}</flux:button>
+                <button type="button" class="rounded-full px-4 py-2 text-sm font-medium text-smoke hover:text-ivory">{{ __('Cancel') }}</button>
             </flux:modal.close>
 
-            <flux:button variant="danger" type="submit" data-test="confirm-delete-user-button">
+            <button type="submit" wire:loading.attr="disabled" class="rounded-full bg-live px-5 py-2 text-sm font-semibold text-ivory hover:opacity-90 disabled:opacity-60" data-test="confirm-delete-user-button">
                 {{ __('Delete account') }}
-            </flux:button>
+            </button>
         </div>
     </form>
 </flux:modal>

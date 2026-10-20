@@ -66,50 +66,40 @@
     }"
 >
     <template x-if="!supported">
-        <flux:text>{{ __('Passkeys are not supported in this browser.') }}</flux:text>
+        <p class="text-sm text-smoke">{{ __('Passkeys are not supported in this browser.') }}</p>
     </template>
 
     <template x-if="supported && !showForm">
-        <div>
-            <flux:button
-                variant="primary"
-                icon="plus"
-                x-on:click="showForm = true"
-            >
-                {{ __('Add passkey') }}
-            </flux:button>
-        </div>
+        <button type="button" x-on:click="showForm = true" class="flex items-center gap-1.5 rounded-full bg-gold px-5 py-2 text-sm font-semibold text-ink-950 hover:bg-gold-bright">
+            <flux:icon.plus class="size-4" />
+            {{ __('Add passkey') }}
+        </button>
     </template>
 
     <template x-if="supported && showForm">
-        <div class="space-y-4 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-4">
-            <flux:input
-                label="{{ __('Passkey name') }}"
-                x-model="name"
-                placeholder="{{ __('e.g., MacBook Pro, iPhone') }}"
-                x-on:keydown.enter.prevent="register()"
-                x-ref="passkeyNameInput"
-                x-init="$nextTick(() => $refs.passkeyNameInput?.focus())"
-            />
-            <flux:text class="!mt-1">{{ __('Give this passkey a name to help you identify it later.') }}</flux:text>
+        <div class="space-y-3 rounded-lg border border-ink-700 bg-ink-900 p-4">
+            <label class="block">
+                <span class="text-xs text-smoke">{{ __('Passkey name') }}</span>
+                <input
+                    type="text"
+                    x-model="name"
+                    placeholder="{{ __('e.g. My phone') }}"
+                    x-on:keydown.enter.prevent="register()"
+                    x-ref="passkeyNameInput"
+                    x-init="$nextTick(() => $refs.passkeyNameInput?.focus())"
+                    class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 text-ivory focus:border-gold/50"
+                >
+            </label>
+            <p class="text-xs text-smoke">{{ __('A name helps you tell your passkeys apart.') }}</p>
 
-            <p x-show="error" x-text="error" x-cloak class="text-sm text-red-600 dark:text-red-400"></p>
+            <p x-show="error" x-text="error" x-cloak class="text-xs text-live"></p>
 
             <div class="flex gap-2">
-                <flux:button
-                    variant="primary"
-                    x-on:click="register()"
-                    x-bind:disabled="loading || !name.trim()"
-                >
-                    <span x-show="!loading">{{ __('Register passkey') }}</span>
-                    <span x-show="loading" x-cloak>{{ __('Registering...') }}</span>
-                </flux:button>
-                <flux:button
-                    variant="ghost"
-                    x-on:click="cancel()"
-                >
-                    {{ __('Cancel') }}
-                </flux:button>
+                <button type="button" x-on:click="register()" x-bind:disabled="loading || !name.trim()" class="rounded-full bg-gold px-5 py-2 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:opacity-60">
+                    <span x-show="!loading">{{ __('Save passkey') }}</span>
+                    <span x-show="loading" x-cloak>{{ __('Saving…') }}</span>
+                </button>
+                <button type="button" x-on:click="cancel()" class="rounded-full px-4 py-2 text-sm font-medium text-smoke hover:text-ivory">{{ __('Cancel') }}</button>
             </div>
         </div>
     </template>

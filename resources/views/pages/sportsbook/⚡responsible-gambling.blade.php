@@ -85,9 +85,9 @@ new #[Layout('layouts::sportsbook')] #[Title('Responsible gambling')] class exte
     }
 }; ?>
 
-<div class="mx-auto max-w-3xl space-y-4">
+<x-pages::settings.layout current="responsible-gambling.settings">
     <section class="glass-card p-5">
-        <h1 class="font-display text-xl font-bold text-ivory">{{ __('Responsible gambling') }}</h1>
+        <h2 class="font-display text-lg font-bold text-ivory">{{ __('Responsible gambling') }}</h2>
         <p class="mt-1 text-sm text-smoke">
             {{ __('Betting should stay fun. Set limits on what you deposit, or take a break. If gambling is causing you harm, please talk to someone you trust or a professional.') }}
         </p>
@@ -194,4 +194,4 @@ new #[Layout('layouts::sportsbook')] #[Title('Responsible gambling')] class exte
             </button>
         </form>
     </section>
-</div>
+</x-pages::settings.layout>

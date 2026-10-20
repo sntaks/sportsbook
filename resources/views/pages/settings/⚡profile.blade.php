@@ -4,10 +4,11 @@ use App\Models\User;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Profile settings')] class extends Component {
+new #[Layout('layouts::sportsbook')] #[Title('Profile settings')] class extends Component {
     public string $name = '';
     public string $email = '';
 
@@ -48,28 +49,38 @@ new #[Title('Profile settings')] class extends Component {
     }
 }; ?>
 
-<section class="w-full">
-    @include('partials.settings-heading')
-
-    <flux:heading level="2" class="sr-only">{{ __('Profile settings') }}</flux:heading>
-
-    <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Your phone number, name and email address')">
+<x-pages::settings.layout current="profile.edit">
+    <section class="glass-card p-5">
+        <h2 class="font-display text-lg font-bold text-ivory">{{ __('Phone number') }}</h2>
         <livewire:pages::settings.change-phone />
+    </section>
 
-        <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-            <flux:input wire:model="name" :label="__('Name')" :badge="__('Optional')" type="text" autocomplete="name" />
+    <section class="glass-card p-5">
+        <h2 class="font-display text-lg font-bold text-ivory">{{ __('Name and email') }}</h2>
+        <p class="mt-1 text-sm text-smoke">{{ __('Both are optional. Your name is shown on your account menu.') }}</p>
 
-            <flux:input wire:model="email" :label="__('Email')" :badge="__('Optional')" type="email" autocomplete="email" />
+        <form wire:submit="updateProfileInformation" class="mt-4 space-y-3">
+            <label class="block">
+                <span class="text-xs text-smoke">{{ __('Name') }}</span>
+                <input type="text" wire:model="name" autocomplete="name" class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 text-ivory focus:border-gold/50">
+            </label>
+            @error('name')
+                <p class="text-xs text-live">{{ $message }}</p>
+            @enderror
 
-            <div class="flex items-center gap-4">
-                <div class="flex items-center justify-end">
-                    <flux:button variant="primary" type="submit" class="w-full" data-test="update-profile-button">
-                        {{ __('Save') }}
-                    </flux:button>
-                </div>
-            </div>
+            <label class="block">
+                <span class="text-xs text-smoke">{{ __('Email') }}</span>
+                <input type="email" wire:model="email" autocomplete="email" class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 text-ivory focus:border-gold/50">
+            </label>
+            @error('email')
+                <p class="text-xs text-live">{{ $message }}</p>
+            @enderror
+
+            <button type="submit" wire:loading.attr="disabled" class="rounded-full bg-gold px-6 py-2.5 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:opacity-60" data-test="update-profile-button">
+                {{ __('Save') }}
+            </button>
         </form>
+    </section>
 
-        <livewire:pages::settings.delete-user-form />
-    </x-pages::settings.layout>
-</section>
+    <livewire:pages::settings.delete-user-form />
+</x-pages::settings.layout>
