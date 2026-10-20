@@ -9,25 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Safaricom accepts every push, numbering them ws_CO_1, ws_CO_2, …
- */
-function fakeStkPushAccepted(): void
-{
-    $pushes = 0;
-
-    Http::fake(['sandbox.safaricom.co.ke/mpesa/stkpush/*' => function () use (&$pushes) {
-        $pushes++;
-
-        return Http::response([
-            'MerchantRequestID' => "MR-{$pushes}",
-            'CheckoutRequestID' => "ws_CO_{$pushes}",
-            'ResponseCode' => '0',
-            'ResponseDescription' => 'Success. Request accepted for processing',
-        ]);
-    }]);
-}
-
-/**
  * The validation message StartDeposit gives for the amount, or null if it did not refuse.
  */
 function depositRefusal(Closure $start): ?string

@@ -86,6 +86,29 @@ test('a sign-up left for longer than the code lasts has to start again', functio
     expect(User::count())->toBe(0);
 });
 
+test('a new code can be requested once the resend wait is over', function () {
+    $sms = fakeSms();
+    $component = startSignUp();
+
+    $this->travel(61)->seconds();
+
+    $component->call('resendCode')->assertHasNoErrors();
+
+    expect($sms->sent)->toHaveCount(2);
+});
+
+test('asking for a new code after the sign-up has lapsed says to start again and sends nothing', function () {
+    $sms = fakeSms();
+    $component = startSignUp();
+
+    $this->travel(11)->minutes();
+
+    $component->call('resendCode')
+        ->assertHasErrors(['phone' => 'That code has expired. Please request a new one.']);
+
+    expect($sms->sent)->toHaveCount(1);
+});
+
 test('a number that already has an account cannot sign up again', function () {
     $sms = fakeSms();
     User::factory()->create(['phone' => '254712345678']);

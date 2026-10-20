@@ -1,0 +1,3156 @@
+{
+    "openapi": "3.1.2",
+    "info": {
+        "title": "SportsBook",
+        "version": "1.0.0",
+        "description": "The sportsbook API for the mobile app. Log in with `POST /auth/login` (or finish signing up with `POST /auth/register/verify`) and send the token as `Authorization: Bearer <token>`. Tokens last 90 days per device. Money is in cents (`*_cents`) except request amounts, which are whole shillings. Times are ISO 8601 in UTC."
+    },
+    "servers": [
+        {
+            "url": "https://sportsbook.test/api/v1"
+        }
+    ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
+    "paths": {
+        "/me": {
+            "get": {
+                "operationId": "v1.me",
+                "description": "Includes the wallet balance and what the account can do right now (bet, deposit, withdraw).",
+                "summary": "The logged-in player",
+                "tags": [
+                    "Account"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/me/odds-change-policy": {
+            "put": {
+                "operationId": "v1.me.odds-change-policy",
+                "description": "What to do when a price moves between adding a pick and placing the bet. Remembered for the next slip.",
+                "summary": "Set the odds change policy",
+                "tags": [
+                    "Account"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateOddsPolicyRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "operationId": "v1.auth.register",
+                "description": "Checks the details and texts a code to the phone. The account is created by verify once the code matches.",
+                "summary": "Start signing up",
+                "tags": [
+                    "Auth",
+                    "Registration"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartRegistrationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "phone": {
+                                            "type": "string",
+                                            "description": "The number the code was sent to, normalized to 2547XXXXXXXX. Send it back with the code."
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "We have sent a code to your phone."
+                                        }
+                                    },
+                                    "required": [
+                                        "phone",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/register/resend": {
+            "post": {
+                "operationId": "v1.auth.register.resend",
+                "description": "Only for a number that has started signing up and not finished.",
+                "summary": "Resend the sign-up code",
+                "tags": [
+                    "Auth",
+                    "Registration"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResendRegistrationCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "We have sent a new code to your phone."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/register/verify": {
+            "post": {
+                "operationId": "v1.auth.register.verify",
+                "description": "Creates the account once the code matches, and returns an API token for this device.",
+                "summary": "Finish signing up",
+                "tags": [
+                    "Auth",
+                    "Registration"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerifyRegistrationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "token_type",
+                                        "expires_at",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "operationId": "v1.auth.login",
+                "description": "Returns an API token for this device. A player with two-factor authentication on must also send `code`: the\nsix-digit code from their authenticator app, or one of their recovery codes (each works once). Without it the\nresponse is a 422 with an error on `code`.",
+                "summary": "Log in",
+                "tags": [
+                    "Auth",
+                    "Session"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "expires_at": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "token",
+                                        "token_type",
+                                        "expires_at",
+                                        "user"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/forgot-password": {
+            "post": {
+                "operationId": "v1.auth.forgot-password",
+                "description": "Answers the same whether or not the number has an account; only numbers with an account get an SMS.",
+                "summary": "Ask for a password reset code",
+                "tags": [
+                    "Auth",
+                    "PasswordReset"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ForgotPasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "phone": {
+                                            "type": "string",
+                                            "description": "The number normalized to 2547XXXXXXXX. Send it back with the code."
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "If this number has an account, we have sent it a code."
+                                        }
+                                    },
+                                    "required": [
+                                        "phone",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "operationId": "v1.auth.reset-password",
+                "description": "Every API token and web session on the account is signed out, so the player logs in again with the new\npassword.",
+                "summary": "Set a new password",
+                "tags": [
+                    "Auth",
+                    "PasswordReset"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Your password has been reset. Log in with your new password."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "operationId": "v1.auth.logout",
+                "description": "Revokes the token used for this request. Other devices stay logged in.",
+                "summary": "Log out",
+                "tags": [
+                    "Auth",
+                    "Session"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/slip/quote": {
+            "post": {
+                "operationId": "v1.slip.quote",
+                "description": "Checks each pick against the current price and returns the combined odds and the possible win for `stake`.\nSend the picks again whenever they change; prices sent by the app are never trusted. A line whose price moved\nhas status `price_changed` and appears in `changed_prices` with its current price. Only the first pick per\nmatch counts.",
+                "summary": "Price a bet slip",
+                "tags": [
+                    "Bet slip",
+                    "Slip"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/QuoteSlipRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "lines": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "selection_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "fixture_id": {
+                                                        "type": "string"
+                                                    },
+                                                    "fixture_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "market_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "selection_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "seen_price": {
+                                                        "type": "string"
+                                                    },
+                                                    "price": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ],
+                                                        "description": "The price now, or null when the selection cannot be bet on."
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "ok",
+                                                            "price_changed",
+                                                            "unavailable"
+                                                        ]
+                                                    },
+                                                    "message": {
+                                                        "type": [
+                                                            "string",
+                                                            "null"
+                                                        ]
+                                                    }
+                                                },
+                                                "required": [
+                                                    "selection_id",
+                                                    "fixture_id",
+                                                    "fixture_name",
+                                                    "market_name",
+                                                    "selection_name",
+                                                    "seen_price",
+                                                    "price",
+                                                    "status",
+                                                    "message"
+                                                ]
+                                            }
+                                        },
+                                        "total_odds": {
+                                            "type": "string",
+                                            "description": "Combined odds of the lines that can be bet on, to two decimals."
+                                        },
+                                        "stake_errors": {
+                                            "type": "array",
+                                            "description": "Why the stake cannot be used, if it cannot.",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "possible_win_cents": {
+                                            "type": "integer",
+                                            "description": "Possible win in cents, capped at the maximum payout."
+                                        },
+                                        "is_payout_capped": {
+                                            "type": "boolean"
+                                        },
+                                        "changed_prices": {
+                                            "type": "string",
+                                            "description": "Selection id => current price, for each line whose price moved. @var array<string, string>"
+                                        },
+                                        "bettable_count": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        }
+                                    },
+                                    "required": [
+                                        "lines",
+                                        "total_odds",
+                                        "stake_errors",
+                                        "possible_win_cents",
+                                        "is_payout_capped",
+                                        "changed_prices",
+                                        "bettable_count"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/booking-codes": {
+            "post": {
+                "operationId": "v1.booking-codes.store",
+                "description": "Keeps only the selections open for betting now, one per match. The code expires when the first of those\nmatches kicks off. Limited to 10 a minute.",
+                "summary": "Share a slip as a booking code",
+                "tags": [
+                    "Bet slip",
+                    "BookingCode"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreBookingCodeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "expires_at": {
+                                            "type": "string"
+                                        },
+                                        "selection_ids": {
+                                            "type": "array",
+                                            "description": "The selections saved on the code. @var list<int>",
+                                            "items": {
+                                                "type": "integer"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "expires_at",
+                                        "selection_ids"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/booking-codes/{code}": {
+            "get": {
+                "operationId": "v1.booking-codes.show",
+                "description": "Returns picks ready to send to the slip quote, at today's prices. Selections that can no longer be bet on\nare left out and described in `unavailable`. Limited to 30 a minute.",
+                "summary": "Load a booking code",
+                "tags": [
+                    "Bet slip",
+                    "BookingCode"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "picks": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "fixture_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "selection_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "price": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "fixture_id",
+                                                    "selection_id",
+                                                    "price"
+                                                ]
+                                            }
+                                        },
+                                        "unavailable": {
+                                            "type": "array",
+                                            "description": "The saved selections that can no longer be bet on, described for the player.",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "picks",
+                                        "unavailable"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/bets": {
+            "get": {
+                "operationId": "v1.bets.index",
+                "description": "Newest first, 20 a page. Filter with `status=open` or `status=settled` (anything no longer open);\nleave it out for all bets.",
+                "summary": "My bets",
+                "tags": [
+                    "Bets",
+                    "Bet"
+                ],
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "open",
+                                "settled",
+                                null
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `BetResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/BetResource"
+                                                    },
+                                                    {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "legs"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "current_page",
+                                                "from",
+                                                "last_page",
+                                                "links",
+                                                "path",
+                                                "per_page",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.bets.store",
+                "description": "One pick per match; more than one pick makes a multibet. Prices are checked again here: what happens when one\nmoved depends on `odds_change_policy` (the account's setting when left out). `slip_key` is any unique string\nper slip, up to 64 characters: sending the same slip again returns the bet already placed with a 200 instead\nof placing a second one.\n\nA refused bet is a 422 with a `reason` the app can act on: `not-allowed`, `empty-slip`, `unavailable`,\n`price-changed`, `duplicate-match`, `stake` or `insufficient-funds`.",
+                "summary": "Place a bet",
+                "tags": [
+                    "Bets",
+                    "Bet"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlaceBetRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "`BetResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/BetResource"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "legs"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "200": {
+                        "description": "`BetResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/BetResource"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "legs"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "description": "The slip is invalid (`errors`) or the bet was refused (`reason`).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "reason": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/bets/{reference}": {
+            "get": {
+                "operationId": "v1.bets.show",
+                "description": "Found by its reference, the Bet ID shown to the player. Another player's bet is not found.",
+                "summary": "A bet",
+                "tags": [
+                    "Bets",
+                    "Bet"
+                ],
+                "parameters": [
+                    {
+                        "name": "reference",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`BetResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/BetResource"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "legs"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/sports": {
+            "get": {
+                "operationId": "v1.sports.index",
+                "description": "The sports with at least one competition on offer, each with its competitions and how many upcoming matches\nthey have. Same as the site's sidebar.",
+                "summary": "Sports and competitions",
+                "tags": [
+                    "Catalogue",
+                    "Sport"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `SportResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/SportResource"
+                                                    },
+                                                    {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "competitions"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/fixtures": {
+            "get": {
+                "operationId": "v1.fixtures.index",
+                "description": "The same lists as the home page tabs, or one competition's matches. Each match carries the one market chosen\nwith `market` (1X2 by default) and a count of all its markets.",
+                "summary": "Upcoming matches",
+                "tags": [
+                    "Catalogue",
+                    "Fixture"
+                ],
+                "parameters": [
+                    {
+                        "name": "tab",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "highlights",
+                                "today",
+                                "tomorrow",
+                                "upcoming",
+                                null
+                            ]
+                        }
+                    },
+                    {
+                        "name": "market",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "h2h",
+                                "double_chance",
+                                "totals:2.5",
+                                "btts",
+                                null
+                            ]
+                        }
+                    },
+                    {
+                        "name": "competition",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `FixtureResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/FixtureResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/fixtures/live": {
+            "get": {
+                "operationId": "v1.fixtures.live",
+                "description": "Kicked off and not yet finished. Betting on them is closed, so no markets are included.",
+                "summary": "Matches in play",
+                "tags": [
+                    "Catalogue",
+                    "Fixture"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `FixtureResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/FixtureResource"
+                                                    },
+                                                    {
+                                                        "type": "object",
+                                                        "required": [
+                                                            "competition"
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/fixtures/search": {
+            "get": {
+                "operationId": "v1.fixtures.search",
+                "description": "Upcoming matches whose team or competition name contains `q`.",
+                "summary": "Search matches",
+                "tags": [
+                    "Catalogue",
+                    "Fixture"
+                ],
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 60
+                        }
+                    },
+                    {
+                        "name": "market",
+                        "in": "query",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "h2h",
+                                "double_chance",
+                                "totals:2.5",
+                                "btts",
+                                null
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `FixtureResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/FixtureResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/fixtures/{fixture}": {
+            "get": {
+                "operationId": "v1.fixtures.show",
+                "description": "Markets are grouped into the same tabs as the match page: main, goals, correct score and half time. Empty\ntabs are left out.",
+                "summary": "A match with all its markets",
+                "tags": [
+                    "Catalogue",
+                    "Fixture"
+                ],
+                "parameters": [
+                    {
+                        "name": "fixture",
+                        "in": "path",
+                        "required": true,
+                        "description": "The fixture ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`FixtureDetailResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/FixtureDetailResource"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "competition"
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/deposit-limits": {
+            "get": {
+                "operationId": "v1.deposit-limits.index",
+                "description": "One entry per period (daily, weekly, monthly), with `amount_cents` null where no limit is set, and how much\nthe limits still allow right now.",
+                "summary": "Deposit limits",
+                "tags": [
+                    "Responsible gambling",
+                    "DepositLimit"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "$ref": "#/components/schemas/DepositLimitResource"
+                                            }
+                                        },
+                                        "allowance_cents": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "description": "Cents the limits still allow, or null when no limit is set."
+                                        },
+                                        "raise_delay_hours": {
+                                            "type": "integer",
+                                            "description": "Hours a raise or removal waits before it applies. Cuts apply at once."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "allowance_cents",
+                                        "raise_delay_hours"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/deposit-limits/{period}": {
+            "put": {
+                "operationId": "v1.deposit-limits.update",
+                "description": "`amount` in whole shillings, or null to remove the limit. Lowering a limit applies at once; raising or\nremoving one waits (see `pending_from`).",
+                "summary": "Set a deposit limit",
+                "tags": [
+                    "Responsible gambling",
+                    "DepositLimit"
+                ],
+                "parameters": [
+                    {
+                        "name": "period",
+                        "in": "path",
+                        "required": true,
+                        "description": "The period ID",
+                        "schema": {
+                            "$ref": "#/components/schemas/DepositLimitPeriod"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateDepositLimitRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "`DepositLimitResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DepositLimitResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/exclusions": {
+            "post": {
+                "operationId": "v1.exclusions.store",
+                "description": "Stops deposits and betting until the break ends; withdrawals still work. A break cannot be cancelled or\nshortened, only made longer. `duration` is `24h`, `7d` or `30d` for a cool-off and `6m`, `1y` or `5y` for a\nself-exclusion. The player's password confirms it.",
+                "summary": "Take a break",
+                "tags": [
+                    "Responsible gambling",
+                    "Exclusion"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreExclusionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "`UserResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/wallet": {
+            "get": {
+                "operationId": "v1.wallet.show",
+                "description": "Balance, what the player's deposit limits still allow, the deposit and withdrawal bounds (in whole shillings)\nand, when M-Pesa Paybill is set up, the numbers to pay from the M-Pesa menu.",
+                "summary": "The wallet",
+                "tags": [
+                    "Wallet"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "balance_cents": {
+                                            "type": "integer"
+                                        },
+                                        "deposit_allowance_cents": {
+                                            "type": [
+                                                "integer",
+                                                "null"
+                                            ],
+                                            "description": "Cents the deposit limits still allow, or null when no limit is set."
+                                        },
+                                        "can_deposit": {
+                                            "type": "boolean"
+                                        },
+                                        "can_withdraw": {
+                                            "type": "boolean"
+                                        },
+                                        "min_deposit": {
+                                            "type": "integer"
+                                        },
+                                        "max_deposit": {
+                                            "type": "integer"
+                                        },
+                                        "min_withdrawal": {
+                                            "type": "integer"
+                                        },
+                                        "max_withdrawal": {
+                                            "type": "integer"
+                                        },
+                                        "withdrawal_approval_threshold": {
+                                            "type": "integer",
+                                            "description": "Withdrawals of this many shillings or more wait for approval."
+                                        },
+                                        "paybill": {
+                                            "type": [
+                                                "object",
+                                                "null"
+                                            ],
+                                            "description": "The numbers to pay from the M-Pesa menu, or null when Paybill is not set up.",
+                                            "properties": {
+                                                "business_number": {
+                                                    "type": "string"
+                                                },
+                                                "account_number": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "business_number",
+                                                "account_number"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "balance_cents",
+                                        "deposit_allowance_cents",
+                                        "can_deposit",
+                                        "can_withdraw",
+                                        "min_deposit",
+                                        "max_deposit",
+                                        "min_withdrawal",
+                                        "max_withdrawal",
+                                        "withdrawal_approval_threshold",
+                                        "paybill"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/wallet/transactions": {
+            "get": {
+                "operationId": "v1.wallet.transactions",
+                "description": "Every movement of money, newest first, 20 a page.",
+                "summary": "Wallet transactions",
+                "tags": [
+                    "Wallet"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `WalletTransactionResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/WalletTransactionResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "current_page",
+                                                "from",
+                                                "last_page",
+                                                "links",
+                                                "path",
+                                                "per_page",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/deposits": {
+            "post": {
+                "operationId": "v1.deposits.store",
+                "description": "Sends an M-Pesa payment prompt to the player's phone for `amount` whole shillings. The deposit starts pending:\npoll it every few seconds until `is_pending` is false. Refused when the account cannot deposit, the amount is\nout of bounds or over a deposit limit.",
+                "summary": "Deposit with M-Pesa",
+                "tags": [
+                    "Wallet",
+                    "Deposit"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreDepositRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "`DepositResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DepositResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/deposits/{deposit}": {
+            "get": {
+                "operationId": "v1.deposits.show",
+                "description": "Another player's deposit is not found.",
+                "summary": "A deposit",
+                "tags": [
+                    "Wallet",
+                    "Deposit"
+                ],
+                "parameters": [
+                    {
+                        "name": "deposit",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`DepositResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DepositResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/withdrawals": {
+            "get": {
+                "operationId": "v1.withdrawals.index",
+                "description": "Newest first, 20 a page.",
+                "summary": "My withdrawals",
+                "tags": [
+                    "Wallet",
+                    "Withdrawal"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `WithdrawalResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/WithdrawalResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "last_page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "current_page",
+                                                "from",
+                                                "last_page",
+                                                "links",
+                                                "path",
+                                                "per_page",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.withdrawals.store",
+                "description": "Pays `amount` whole shillings to the player's M-Pesa number. The money leaves the balance at once. Amounts at\nor above the approval threshold wait for review (status `awaiting-approval`) before they are paid.",
+                "summary": "Withdraw to M-Pesa",
+                "tags": [
+                    "Wallet",
+                    "Withdrawal"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreWithdrawalRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "`WithdrawalResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/WithdrawalResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        },
+        "schemas": {
+            "BetLegResource": {
+                "type": "object",
+                "properties": {
+                    "fixture_id": {
+                        "type": "integer"
+                    },
+                    "fixture_name": {
+                        "type": "string"
+                    },
+                    "kicks_off_at": {
+                        "type": "string"
+                    },
+                    "market_type": {
+                        "type": "string"
+                    },
+                    "market_line": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "market_name": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "selection_name": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "enum": [
+                            "Open",
+                            "Won",
+                            "Lost",
+                            "Void"
+                        ]
+                    }
+                },
+                "required": [
+                    "fixture_id",
+                    "fixture_name",
+                    "kicks_off_at",
+                    "market_type",
+                    "market_line",
+                    "market_name",
+                    "outcome",
+                    "selection_name",
+                    "price",
+                    "status",
+                    "status_label"
+                ],
+                "title": "BetLegResource"
+            },
+            "BetResource": {
+                "type": "object",
+                "properties": {
+                    "reference": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "enum": [
+                            "Open",
+                            "Won",
+                            "Lost",
+                            "Void",
+                            "Cancelled"
+                        ]
+                    },
+                    "stake_cents": {
+                        "type": "integer"
+                    },
+                    "total_odds": {
+                        "type": "string"
+                    },
+                    "potential_payout_cents": {
+                        "type": "integer"
+                    },
+                    "payout_cents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "odds_change_policy": {
+                        "type": "string"
+                    },
+                    "placed_at": {
+                        "type": "string"
+                    },
+                    "settled_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "legs": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BetLegResource"
+                        }
+                    }
+                },
+                "required": [
+                    "reference",
+                    "type",
+                    "status",
+                    "status_label",
+                    "stake_cents",
+                    "total_odds",
+                    "potential_payout_cents",
+                    "payout_cents",
+                    "odds_change_policy",
+                    "placed_at",
+                    "settled_at"
+                ],
+                "title": "BetResource"
+            },
+            "CompetitionResource": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "upcoming_fixtures_count": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "slug",
+                    "name"
+                ],
+                "title": "CompetitionResource"
+            },
+            "DepositLimitPeriod": {
+                "type": "string",
+                "description": "Deposit limits count rolling windows (decision 28): the last 24 hours, 7 days or 30 days, never calendar periods, so depositing either side of midnight cannot double a limit.\n",
+                "enum": [
+                    "daily",
+                    "weekly",
+                    "monthly"
+                ],
+                "title": "DepositLimitPeriod"
+            },
+            "DepositLimitResource": {
+                "type": "object",
+                "properties": {
+                    "period": {
+                        "type": "string"
+                    },
+                    "period_label": {
+                        "type": "string",
+                        "enum": [
+                            "Daily (last 24 hours)",
+                            "Weekly (last 7 days)",
+                            "Monthly (last 30 days)"
+                        ]
+                    },
+                    "amount_cents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "has_pending_change": {
+                        "type": "boolean"
+                    },
+                    "pending_amount_cents": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "pending_from": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "period",
+                    "period_label",
+                    "amount_cents",
+                    "has_pending_change",
+                    "pending_amount_cents",
+                    "pending_from"
+                ],
+                "title": "DepositLimitResource"
+            },
+            "DepositResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "channel": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "enum": [
+                            "Waiting for M-Pesa",
+                            "Completed",
+                            "Failed",
+                            "Cancelled",
+                            "Expired",
+                            "Under review",
+                            "Unmatched",
+                            "Dismissed"
+                        ]
+                    },
+                    "is_pending": {
+                        "type": "boolean"
+                    },
+                    "amount_cents": {
+                        "type": "integer"
+                    },
+                    "mpesa_receipt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "completed_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "channel",
+                    "status",
+                    "status_label",
+                    "is_pending",
+                    "amount_cents",
+                    "mpesa_receipt",
+                    "created_at",
+                    "completed_at"
+                ],
+                "title": "DepositResource"
+            },
+            "ExclusionType": {
+                "type": "string",
+                "description": "A break a player takes from betting. While it lasts they can log in and withdraw, but not deposit or bet. It can be extended but never shortened.\n",
+                "enum": [
+                    "cool-off",
+                    "self-exclusion"
+                ],
+                "title": "ExclusionType"
+            },
+            "FixtureDetailResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "home_team": {
+                        "type": "string"
+                    },
+                    "away_team": {
+                        "type": "string"
+                    },
+                    "kicks_off_at": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "competition": {
+                        "$ref": "#/components/schemas/CompetitionResource"
+                    },
+                    "markets_count": {
+                        "type": "integer"
+                    },
+                    "market": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/MarketResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "tabs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "key": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "markets": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/MarketResource"
+                                    }
+                                }
+                            },
+                            "required": [
+                                "key",
+                                "label",
+                                "markets"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "home_team",
+                    "away_team",
+                    "kicks_off_at",
+                    "status",
+                    "tabs"
+                ],
+                "title": "FixtureDetailResource"
+            },
+            "FixtureResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "home_team": {
+                        "type": "string"
+                    },
+                    "away_team": {
+                        "type": "string"
+                    },
+                    "kicks_off_at": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "competition": {
+                        "$ref": "#/components/schemas/CompetitionResource"
+                    },
+                    "markets_count": {
+                        "type": "integer"
+                    },
+                    "market": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/MarketResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "home_team",
+                    "away_team",
+                    "kicks_off_at",
+                    "status"
+                ],
+                "title": "FixtureResource"
+            },
+            "ForgotPasswordRequest": {
+                "type": "object",
+                "description": "The number to text a password reset code to.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "phone"
+                ],
+                "title": "ForgotPasswordRequest"
+            },
+            "LoginRequest": {
+                "type": "object",
+                "description": "Phone and password, plus an authenticator or recovery code when two-factor authentication is on.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 64
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "phone",
+                    "password",
+                    "device_name"
+                ],
+                "title": "LoginRequest"
+            },
+            "MarketResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "is_open": {
+                        "type": "boolean"
+                    },
+                    "selections": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SelectionResource"
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "key",
+                    "type",
+                    "line",
+                    "name",
+                    "is_open"
+                ],
+                "title": "MarketResource"
+            },
+            "OddsChangePolicy": {
+                "type": "string",
+                "description": "Which price changes a player accepts between adding picks and placing the bet. The bet is always placed at the current prices; the policy only decides whether a change stops it.\n",
+                "enum": [
+                    "any",
+                    "higher",
+                    "none"
+                ],
+                "title": "OddsChangePolicy"
+            },
+            "PlaceBetRequest": {
+                "type": "object",
+                "description": "A bet slip to place. slip_key is generated once per slip by the app, so sending the same slip twice places it once.",
+                "properties": {
+                    "picks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "fixture_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "selection_id": {
+                                    "type": "integer"
+                                },
+                                "price": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "selection_id",
+                                "price"
+                            ]
+                        }
+                    },
+                    "stake": {
+                        "type": "string"
+                    },
+                    "odds_change_policy": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/OddsChangePolicy"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "slip_key": {
+                        "type": "string",
+                        "maxLength": 64
+                    }
+                },
+                "required": [
+                    "picks",
+                    "stake",
+                    "slip_key"
+                ],
+                "title": "PlaceBetRequest"
+            },
+            "QuoteSlipRequest": {
+                "type": "object",
+                "description": "Bet slip picks with the prices the player saw, and an optional stake in whole shillings.",
+                "properties": {
+                    "picks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "fixture_id": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ]
+                                },
+                                "selection_id": {
+                                    "type": "integer"
+                                },
+                                "price": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "selection_id",
+                                "price"
+                            ]
+                        }
+                    },
+                    "stake": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "picks"
+                ],
+                "title": "QuoteSlipRequest"
+            },
+            "ResendRegistrationCodeRequest": {
+                "type": "object",
+                "description": "A number that has started signing up.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "phone"
+                ],
+                "title": "ResendRegistrationCodeRequest"
+            },
+            "ResetPasswordRequest": {
+                "type": "object",
+                "description": "The reset code and the new password. ResetPassword checks the code and password strength.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "password_confirmation": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "phone",
+                    "code",
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "ResetPasswordRequest"
+            },
+            "SelectionResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "short_label": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "movement": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "up",
+                            "down",
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "outcome",
+                    "name",
+                    "short_label",
+                    "price",
+                    "movement"
+                ],
+                "title": "SelectionResource"
+            },
+            "SportResource": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "competitions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CompetitionResource"
+                        }
+                    }
+                },
+                "required": [
+                    "name",
+                    "slug"
+                ],
+                "title": "SportResource"
+            },
+            "StartRegistrationRequest": {
+                "type": "object",
+                "description": "Sign-up details. RegisterPlayer checks the number, password strength and age.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "password_confirmation": {
+                        "type": "string"
+                    },
+                    "adult": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "phone",
+                    "password",
+                    "password_confirmation",
+                    "adult"
+                ],
+                "title": "StartRegistrationRequest"
+            },
+            "StoreBookingCodeRequest": {
+                "type": "object",
+                "description": "The selections to save as a booking code.",
+                "properties": {
+                    "selection_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "minItems": 1
+                    }
+                },
+                "required": [
+                    "selection_ids"
+                ],
+                "title": "StoreBookingCodeRequest"
+            },
+            "StoreDepositRequest": {
+                "type": "object",
+                "description": "A deposit amount in whole shillings. StartDeposit checks the amount against the deposit limits.",
+                "properties": {
+                    "amount": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount"
+                ],
+                "title": "StoreDepositRequest"
+            },
+            "StoreExclusionRequest": {
+                "type": "object",
+                "description": "A break from betting, confirmed with the player's password.",
+                "properties": {
+                    "type": {
+                        "$ref": "#/components/schemas/ExclusionType"
+                    },
+                    "duration": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "type",
+                    "duration",
+                    "password"
+                ],
+                "title": "StoreExclusionRequest"
+            },
+            "StoreWithdrawalRequest": {
+                "type": "object",
+                "description": "A withdrawal amount in whole shillings. RequestWithdrawal checks the amount and balance.",
+                "properties": {
+                    "amount": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount"
+                ],
+                "title": "StoreWithdrawalRequest"
+            },
+            "UpdateDepositLimitRequest": {
+                "type": "object",
+                "description": "A new deposit limit in whole shillings, or null to remove it.",
+                "properties": {
+                    "amount": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "amount"
+                ],
+                "title": "UpdateDepositLimitRequest"
+            },
+            "UpdateOddsPolicyRequest": {
+                "type": "object",
+                "description": "Which odds changes the player accepts when placing a bet.",
+                "properties": {
+                    "odds_change_policy": {
+                        "$ref": "#/components/schemas/OddsChangePolicy"
+                    }
+                },
+                "required": [
+                    "odds_change_policy"
+                ],
+                "title": "UpdateOddsPolicyRequest"
+            },
+            "UserResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "display_name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "exclusion": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "until": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "until"
+                        ]
+                    },
+                    "can_bet": {
+                        "type": "boolean"
+                    },
+                    "can_deposit": {
+                        "type": "boolean"
+                    },
+                    "can_withdraw": {
+                        "type": "boolean"
+                    },
+                    "odds_change_policy": {
+                        "type": "string"
+                    },
+                    "two_factor_enabled": {
+                        "type": "boolean"
+                    },
+                    "balance_cents": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "phone",
+                    "display_name",
+                    "status",
+                    "exclusion",
+                    "can_bet",
+                    "can_deposit",
+                    "can_withdraw",
+                    "odds_change_policy",
+                    "two_factor_enabled",
+                    "balance_cents"
+                ],
+                "title": "UserResource"
+            },
+            "VerifyRegistrationRequest": {
+                "type": "object",
+                "description": "The SMS code that finishes a sign-up, and a name for the device the token is for.",
+                "properties": {
+                    "phone": {
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "device_name": {
+                        "type": "string",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "phone",
+                    "code",
+                    "device_name"
+                ],
+                "title": "VerifyRegistrationRequest"
+            },
+            "WalletTransactionResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "type_label": {
+                        "type": "string",
+                        "enum": [
+                            "Deposit",
+                            "Tax on deposit",
+                            "Adjustment",
+                            "Withdrawal",
+                            "Withdrawal returned",
+                            "Bet placed",
+                            "Winnings",
+                            "Stake returned",
+                            "Tax on winnings",
+                            "Result corrected"
+                        ]
+                    },
+                    "amount_cents": {
+                        "type": "integer"
+                    },
+                    "balance_after_cents": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "type_label",
+                    "amount_cents",
+                    "balance_after_cents",
+                    "description",
+                    "created_at"
+                ],
+                "title": "WalletTransactionResource"
+            },
+            "WithdrawalResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "enum": [
+                            "Awaiting approval",
+                            "Queued",
+                            "Sending to M-Pesa",
+                            "Paid",
+                            "Failed, money returned",
+                            "Rejected, money returned"
+                        ]
+                    },
+                    "amount_cents": {
+                        "type": "integer"
+                    },
+                    "mpesa_receipt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "completed_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "status",
+                    "status_label",
+                    "amount_cents",
+                    "mpesa_receipt",
+                    "created_at",
+                    "completed_at"
+                ],
+                "title": "WithdrawalResource"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthenticationException": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ModelNotFoundException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

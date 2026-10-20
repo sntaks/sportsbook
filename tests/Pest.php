@@ -126,6 +126,25 @@ function fakeMpesa(): void
     Http::fake(['sandbox.safaricom.co.ke/oauth/*' => Http::response(['access_token' => 'test-token', 'expires_in' => '3599'])]);
 }
 
+/**
+ * Safaricom accepts every push, numbering them ws_CO_1, ws_CO_2, …
+ */
+function fakeStkPushAccepted(): void
+{
+    $pushes = 0;
+
+    Http::fake(['sandbox.safaricom.co.ke/mpesa/stkpush/*' => function () use (&$pushes) {
+        $pushes++;
+
+        return Http::response([
+            'MerchantRequestID' => "MR-{$pushes}",
+            'CheckoutRequestID' => "ws_CO_{$pushes}",
+            'ResponseCode' => '0',
+            'ResponseDescription' => 'Success. Request accepted for processing',
+        ]);
+    }]);
+}
+
 const MPESA_TEST_SECRET = 'test-callback-secret-0123456789abcdef0123456789';
 
 /**

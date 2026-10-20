@@ -19,11 +19,14 @@ use App\Sportsbook\OddsApi\ReplayOddsApi;
 use App\Sportsbook\Pricing\ConsensusPricer;
 use App\Sportsbook\Pricing\Derived\DerivedMarketPricer;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -70,6 +73,20 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureAdminAuthorization();
         $this->configureSportsbookViews();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Limits for the mobile API. Login uses Fortify's "login" limiter, shared with the website.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute((int) config('sportsbook.api.requests_per_minute'))
+            ->by($request->user('sanctum')?->getAuthIdentifier() ?? $request->ip()));
+
+        RateLimiter::for('booking-codes-create', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
+
+        RateLimiter::for('booking-codes-show', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
     }
 
     /**

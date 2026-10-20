@@ -1,5 +1,6 @@
 <?php
 
+use App\Betting\BetNotPlaced;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,4 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        // A refused bet is the player's to fix, not an error to report.
+        $exceptions->dontReport(BetNotPlaced::class);
+
+        $exceptions->render(fn (BetNotPlaced $exception, Request $request) => $request->is('api/*')
+            ? response()->json(['message' => $exception->getMessage(), 'reason' => $exception->reason], 422)
+            : null);
     })->create();

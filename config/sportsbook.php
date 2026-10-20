@@ -40,6 +40,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Mobile API
+    |--------------------------------------------------------------------------
+    |
+    | Each device logs in with its own token, which lasts this many days.
+    | Logging out revokes the device's token; a password reset revokes all.
+    |
+    */
+
+    'api' => [
+        'token_days' => 90,
+        'requests_per_minute' => 60,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Admin Panel
     |--------------------------------------------------------------------------
     |
