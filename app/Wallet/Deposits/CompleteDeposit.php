@@ -4,6 +4,7 @@ namespace App\Wallet\Deposits;
 
 use App\Enums\MpesaDepositStatus;
 use App\Enums\WalletTransactionType;
+use App\Jobs\Promotions\CheckReferralReward;
 use App\Models\MpesaDeposit;
 use App\Wallet\Ledger;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,8 @@ class CompleteDeposit
                 'wallet_transaction_id' => $credit->id,
                 'completed_at' => now(),
             ]);
+
+            CheckReferralReward::dispatchFor($deposit->user);
 
             return $deposit;
         });

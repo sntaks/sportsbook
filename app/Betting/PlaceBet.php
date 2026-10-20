@@ -8,6 +8,7 @@ use App\Enums\BetType;
 use App\Enums\FreeBetStatus;
 use App\Enums\OddsChangePolicy;
 use App\Enums\WalletTransactionType;
+use App\Jobs\Promotions\CheckReferralReward;
 use App\Models\Bet;
 use App\Models\FreeBet;
 use App\Models\Selection;
@@ -178,6 +179,7 @@ class PlaceBet
         }
 
         $bet->update(['stake_transaction_id' => $debit->id]);
+        CheckReferralReward::dispatchFor($user);
 
         return $bet;
     }

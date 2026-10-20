@@ -28,7 +28,7 @@ test('each public page renders inside the shell', function (string $routeName, s
 })->with([
     'live' => ['live', 'No live matches right now'],
     'jackpot' => ['jackpot', 'No jackpot is open right now'],
-    'promotions' => ['promotions', 'No promotions running right now'],
+    'promotions' => ['promotions', 'Invite friends, get free bets'],
     'terms' => ['terms', 'Terms & Conditions'],
     'privacy' => ['privacy', 'Privacy Policy'],
     'responsible gambling' => ['responsible-gambling', 'Responsible Gambling'],

@@ -66,6 +66,31 @@ test('verifying sign-up returns 201 with a 90-day token for the new account', fu
         ->and($token->expires_at->diffInDays(now()->addDays(90)))->toBeLessThan(1);
 });
 
+test('signing up with a friend\'s invite code returns 201 and links the account to them', function () {
+    $sms = fakeSms();
+    $friend = User::factory()->create(['referral_code' => 'ABCD2345']);
+
+    startApiSignUp(['referral_code' => ' abcd2345 '])->assertAccepted();
+
+    $this->postJson(route('api.v1.auth.register.verify'), [
+        'phone' => '254712345678',
+        'code' => $sms->lastCodeFor('254712345678'),
+        'device_name' => 'Pixel 8',
+    ])->assertCreated();
+
+    expect(User::query()->where('phone', '254712345678')->sole()->referred_by_id)->toBe($friend->id);
+});
+
+test('starting sign-up with an unknown invite code returns 422 and sends no code', function () {
+    $sms = fakeSms();
+
+    startApiSignUp(['referral_code' => 'NOPE2345'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['referral_code' => 'That invite code isn\'t valid.']);
+
+    expect($sms->sent)->toBeEmpty();
+});
+
 test('verifying sign-up with a wrong code returns 422 and creates no account', function () {
     $sms = fakeSms();
     startApiSignUp();

@@ -4,6 +4,7 @@ namespace App\Betting\Jackpot;
 
 use App\Enums\JackpotEntryStatus;
 use App\Enums\WalletTransactionType;
+use App\Jobs\Promotions\CheckReferralReward;
 use App\Models\Jackpot;
 use App\Models\JackpotEntry;
 use App\Models\User;
@@ -113,6 +114,7 @@ class EnterJackpot
         }
 
         $entry->update(['stake_transaction_id' => $debit->id]);
+        CheckReferralReward::dispatchFor($user);
 
         return $entry;
     }

@@ -3,6 +3,7 @@
 use App\Enums\MpesaDepositStatus;
 use App\Enums\WalletTransactionType;
 use App\Models\MpesaDeposit;
+use App\Models\ReferralReward;
 use App\Models\User;
 use App\Wallet\Ledger;
 use Illuminate\Support\Facades\Http;
@@ -25,6 +26,31 @@ test('shows the balance and only the player\'s own transactions', function () {
         ->assertSee('KES 1,250.50')
         ->assertSee('TJK1A2B3C4')
         ->assertDontSee('OTHER12345');
+});
+
+test('the invite box shows the player\'s code and link, the month\'s rewards and their invited friends', function () {
+    $player = User::factory()->create(['referral_code' => 'ABCD2345']);
+    $friend = User::factory()->create(['referred_by_id' => $player->id, 'phone' => '254711000001']);
+    ReferralReward::factory()->create(['referrer_id' => $player->id, 'referred_id' => $friend->id]);
+    User::factory()->create(['referred_by_id' => User::factory()->create()->id, 'phone' => '254711000009']);
+
+    $this->actingAs($player)->get(route('wallet'))
+        ->assertOk()
+        ->assertSee('ABCD2345')
+        ->assertSee(route('register', ['ref' => 'ABCD2345']))
+        ->assertSee('Rewards this month: 1 of 10')
+        ->assertSee('0711 *** 001')
+        ->assertSee('Free bet given')
+        ->assertDontSee('0711 *** 009');
+});
+
+test('there is no invite box while invites are switched off', function () {
+    config(['sportsbook.promotions.referrals.enabled' => false]);
+    $player = User::factory()->create();
+
+    $this->actingAs($player)->get(route('wallet'))->assertOk()->assertDontSee('Invite friends');
+
+    expect($player->fresh()->referral_code)->toBeNull();
 });
 
 test('the header shows a logged-in player their balance', function () {

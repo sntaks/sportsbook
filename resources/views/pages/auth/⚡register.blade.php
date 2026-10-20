@@ -3,6 +3,7 @@
 use App\Accounts\PhoneCode;
 use App\Accounts\RegisterPlayer;
 use App\Enums\PhoneCodePurpose;
+use App\Promotions\ReferralCodes;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -19,11 +20,19 @@ new #[Layout('layouts::auth')] #[Title('Register')] class extends Component {
 
     public bool $adult = false;
 
+    /** A friend's invite code, filled in from their link (?ref=). */
+    public string $referral_code = '';
+
     public string $code = '';
 
     /** The normalized number a code was sent to; set once the details step passes. */
     #[Locked]
     public ?string $pendingPhone = null;
+
+    public function mount(): void
+    {
+        $this->referral_code = (string) ReferralCodes::normalize(request()->query('ref'));
+    }
 
     /**
      * Check the details and text a code. The password is not kept on the component afterwards.
@@ -35,6 +44,7 @@ new #[Layout('layouts::auth')] #[Title('Register')] class extends Component {
             'password' => $this->password,
             'password_confirmation' => $this->password_confirmation,
             'adult' => $this->adult,
+            'referral_code' => $this->referral_code,
         ], request()->ip());
 
         $this->reset('password', 'password_confirmation', 'code');
@@ -111,6 +121,18 @@ new #[Layout('layouts::auth')] #[Title('Register')] class extends Component {
                 :placeholder="__('Confirm password')"
                 viewable
             />
+
+            @if (ReferralCodes::enabled())
+                <flux:input
+                    wire:model="referral_code"
+                    :label="__('Invite code')"
+                    :badge="__('Optional')"
+                    autocomplete="off"
+                    autocapitalize="characters"
+                    maxlength="20"
+                    :placeholder="__('From a friend\'s invite link')"
+                />
+            @endif
 
             <flux:field variant="inline">
                 <flux:checkbox wire:model="adult" />

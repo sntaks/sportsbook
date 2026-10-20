@@ -140,6 +140,60 @@ test('the passwords must match', function () {
         ->assertHasErrors(['password' => 'confirmed']);
 });
 
+test('an invite link fills in the code, and the new account is linked to the friend who sent it', function () {
+    $sms = fakeSms();
+    $friend = User::factory()->create(['referral_code' => 'ABCD2345']);
+
+    Livewire::withQueryParams(['ref' => 'abcd2345'])->test('pages::auth.register')
+        ->assertSet('referral_code', 'ABCD2345')
+        ->set('phone', '0712 345 678')
+        ->set('password', 'password')
+        ->set('password_confirmation', 'password')
+        ->set('adult', true)
+        ->call('sendCode')
+        ->assertHasNoErrors()
+        ->set('code', $sms->lastCodeFor('254712345678'))
+        ->call('createAccount')
+        ->assertHasNoErrors();
+
+    expect(User::query()->where('phone', '254712345678')->sole()->referred_by_id)->toBe($friend->id);
+});
+
+test('an unknown invite code is refused and sends no code', function () {
+    $sms = fakeSms();
+
+    Livewire::test('pages::auth.register')
+        ->set('phone', '0712 345 678')
+        ->set('password', 'password')
+        ->set('password_confirmation', 'password')
+        ->set('adult', true)
+        ->set('referral_code', 'NOPE2345')
+        ->call('sendCode')
+        ->assertHasErrors(['referral_code' => 'That invite code isn\'t valid.']);
+
+    expect($sms->sent)->toBeEmpty();
+});
+
+test('with invites switched off there is no code field and a code is ignored', function () {
+    config(['sportsbook.promotions.referrals.enabled' => false]);
+    $sms = fakeSms();
+    User::factory()->create(['referral_code' => 'ABCD2345']);
+
+    $this->get(route('register', ['ref' => 'ABCD2345']))->assertOk()->assertDontSee('Invite code');
+
+    Livewire::withQueryParams(['ref' => 'ABCD2345'])->test('pages::auth.register')
+        ->set('phone', '0712 345 678')
+        ->set('password', 'password')
+        ->set('password_confirmation', 'password')
+        ->set('adult', true)
+        ->call('sendCode')
+        ->set('code', $sms->lastCodeFor('254712345678'))
+        ->call('createAccount')
+        ->assertHasNoErrors();
+
+    expect(User::query()->where('phone', '254712345678')->sole()->referred_by_id)->toBeNull();
+});
+
 test('logged-in players are sent away from the sign-up page', function () {
     $this->actingAs(User::factory()->create())
         ->get(route('register'))

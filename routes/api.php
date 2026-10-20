@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\FixtureController;
 use App\Http\Controllers\Api\V1\FreeBetController;
 use App\Http\Controllers\Api\V1\JackpotController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
+use App\Http\Controllers\Api\V1\PromotionController;
+use App\Http\Controllers\Api\V1\ReferralController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\SessionController;
 use App\Http\Controllers\Api\V1\SlipController;
@@ -43,10 +45,13 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
     Route::get('booking-codes/{code}', [BookingCodeController::class, 'show'])->middleware('throttle:booking-codes-show')->name('booking-codes.show');
 
     Route::get('jackpots/current', [JackpotController::class, 'current'])->name('jackpots.current');
+    Route::get('promotions', [PromotionController::class, 'index'])->name('promotions.index');
+    Route::get('promotions/{promotion:slug}', [PromotionController::class, 'show'])->name('promotions.show');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('me', [AccountController::class, 'show'])->name('me');
         Route::put('me/odds-change-policy', [AccountController::class, 'updateOddsPolicy'])->name('me.odds-change-policy');
+        Route::get('me/referral', [ReferralController::class, 'show'])->name('me.referral');
 
         Route::get('bets', [BetController::class, 'index'])->name('bets.index');
         Route::post('bets', [BetController::class, 'store'])->name('bets.store');

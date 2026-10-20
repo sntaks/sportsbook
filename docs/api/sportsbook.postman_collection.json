@@ -718,6 +718,115 @@
       ]
     },
     {
+      "name": "Promotions",
+      "description": "Promotion pages written by staff in the admin. Public: no token needed.",
+      "item": [
+        {
+          "name": "Running promotions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with running promotions and no body', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.data).to.be.an('array');",
+                  "    body.data.forEach(promotion => pm.expect(promotion).to.not.have.property('body_html'));",
+                  "    pm.environment.set('promotion_slug', body.data.length ? body.data[0].slug : 'none-running');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/promotions", "host": ["{{base_url}}"], "path": ["promotions"] }
+          }
+        },
+        {
+          "name": "A promotion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('promotion_slug') === 'none-running') {",
+                  "    pm.test('404: nothing is running', () => pm.response.to.have.status(404));",
+                  "} else {",
+                  "    pm.test('200 with the body as Markdown and HTML', () => {",
+                  "        pm.response.to.have.status(200);",
+                  "        const promotion = pm.response.json().data;",
+                  "        pm.expect(promotion.body_markdown).to.be.a('string');",
+                  "        pm.expect(promotion.body_html).to.not.include('<script');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/promotions/{{promotion_slug}}", "host": ["{{base_url}}"], "path": ["promotions", "{{promotion_slug}}"] }
+          }
+        },
+        {
+          "name": "A promotion that does not exist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/promotions/no-such-promotion", "host": ["{{base_url}}"], "path": ["promotions", "no-such-promotion"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "description": "Invite friends. A friend signs up with the code as referral_code on Start sign-up, or through the link.",
+      "item": [
+        {
+          "name": "My invites",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 with my code, link and friends', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.match(/^[A-HJ-NP-Z2-9]{8}$/);",
+                  "    pm.expect(body.link).to.include('ref=' + body.code);",
+                  "    pm.expect(body.rewards_this_month).to.be.at.most(body.monthly_cap);",
+                  "    pm.expect(body.friends).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/me/referral", "host": ["{{base_url}}"], "path": ["me", "referral"] }
+          }
+        }
+      ]
+    },
+    {
       "name": "Wallet",
       "item": [
         {
