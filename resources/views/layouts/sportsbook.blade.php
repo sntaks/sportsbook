@@ -4,7 +4,7 @@
         @include('partials.head')
         <script>window.sportsbook = @js(['maxSelections' => (int) config('sportsbook.limits.max_selections')]);</script>
     </head>
-    <body class="min-h-screen bg-ink-950 font-sans text-ivory antialiased" x-data="{ sportsOpen: false, betSlipOpen: false }">
+    <body class="min-h-screen bg-ink-950 font-sans text-ivory antialiased" x-data="{ sportsOpen: false }">
         <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-gold focus:px-4 focus:py-2 focus:text-ink-950">
             {{ __('Skip to content') }}
         </a>
@@ -26,6 +26,8 @@
         <x-sportsbook.site-footer />
 
         <x-sportsbook.bottom-nav />
+
+        <livewire:sportsbook.match-panel />
 
         @persist('toast')
             <flux:toast.group position="top end">

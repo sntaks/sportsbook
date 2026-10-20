@@ -7,8 +7,8 @@
     $placeholders = $marketKey === 'h2h' || $marketKey === 'double_chance' ? 3 : 2;
 @endphp
 
-<article wire:key="fixture-{{ $fixture->id }}" class="grid gap-3 border-b border-ink-700 px-3 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-4">
-    <a href="{{ route('matches.show', $fixture) }}" wire:navigate class="group min-w-0">
+<article wire:key="fixture-{{ $fixture->id }}" data-match="{{ $fixture->name() }}" class="grid gap-3 border-b border-ink-700 px-3 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:px-4">
+    <a href="{{ route('matches.show', $fixture) }}" x-on:click="$openMatch($event, {{ $fixture->id }}, @js($fixture->name()))" class="group min-w-0">
         <p class="truncate text-xs text-smoke">
             <span class="tabular-nums">{{ $fixture->kickoffLabel() }}</span>
             <span aria-hidden="true">·</span>
@@ -19,7 +19,7 @@
     </a>
 
     <div class="flex items-center gap-2">
-        <div @class(['grid flex-1 gap-1.5 md:w-64 md:flex-none', 'grid-cols-3' => $placeholders === 3, 'grid-cols-2' => $placeholders === 2])>
+        <div data-market="{{ $market?->name() }}" @class(['grid flex-1 gap-1.5 md:w-64 md:flex-none', 'grid-cols-3' => $placeholders === 3, 'grid-cols-2' => $placeholders === 2])>
             @forelse ($selections as $selection)
                 <x-sportsbook.odds-button :$selection :$fixture :open="$market->isOpen()" wire:key="selection-{{ $selection->id }}" />
             @empty
@@ -29,7 +29,7 @@
             @endforelse
         </div>
 
-        <a href="{{ route('matches.show', $fixture) }}" wire:navigate class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-xs font-semibold text-smoke hover:text-gold" aria-label="{{ __('All markets for :match', ['match' => $fixture->name()]) }}">
+        <a href="{{ route('matches.show', $fixture) }}" x-on:click="$openMatch($event, {{ $fixture->id }}, @js($fixture->name()))" class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-xs font-semibold text-smoke hover:text-gold" aria-label="{{ __('All markets for :match', ['match' => $fixture->name()]) }}">
             +{{ $moreMarkets }}
         </a>
     </div>

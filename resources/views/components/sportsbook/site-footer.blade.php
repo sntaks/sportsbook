@@ -8,19 +8,19 @@
         <div>
             <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-smoke">{{ __('Play') }}</h2>
             <ul class="mt-3 space-y-2 text-sm">
-                <li><a href="{{ route('home') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Sports betting') }}</a></li>
-                <li><a href="{{ route('live') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Live') }}</a></li>
-                <li><a href="{{ route('jackpot') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Jackpot') }}</a></li>
-                <li><a href="{{ route('promotions') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Promotions') }}</a></li>
+                <li><a href="{{ route('home') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Sports betting') }}</a></li>
+                <li><a href="{{ route('live') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Live') }}</a></li>
+                <li><a href="{{ route('jackpot') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Jackpot') }}</a></li>
+                <li><a href="{{ route('promotions') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Promotions') }}</a></li>
             </ul>
         </div>
 
         <div>
             <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-smoke">{{ __('Legal') }}</h2>
             <ul class="mt-3 space-y-2 text-sm">
-                <li><a href="{{ route('terms') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Terms & Conditions') }}</a></li>
-                <li><a href="{{ route('privacy') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Privacy Policy') }}</a></li>
-                <li><a href="{{ route('responsible-gambling') }}" wire:navigate class="text-ivory/80 hover:text-gold">{{ __('Responsible Gambling') }}</a></li>
+                <li><a href="{{ route('terms') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Terms & Conditions') }}</a></li>
+                <li><a href="{{ route('privacy') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Privacy Policy') }}</a></li>
+                <li><a href="{{ route('responsible-gambling') }}" wire:navigate.hover class="text-ivory/80 hover:text-gold">{{ __('Responsible Gambling') }}</a></li>
             </ul>
         </div>
 

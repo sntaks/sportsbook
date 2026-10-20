@@ -9,7 +9,7 @@
     };
 @endphp
 
-<section wire:key="market-{{ $market->id }}" class="rounded-2xl border border-ink-700 bg-ink-900 p-3 md:p-4">
+<section wire:key="market-{{ $market->id }}" data-match="{{ $fixture->name() }}" data-market="{{ $market->name() }}" class="rounded-2xl border border-ink-700 bg-ink-900 p-3 md:p-4">
     <header class="mb-3 flex items-center justify-between gap-3">
         <h3 class="text-sm font-semibold text-ivory">{{ $market->name() }}</h3>
         @unless ($isOpen)

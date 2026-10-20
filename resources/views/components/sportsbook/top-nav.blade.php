@@ -9,14 +9,14 @@
             <flux:icon.bars-3 class="size-6" />
         </button>
 
-        <a href="{{ route('home') }}" wire:navigate class="shrink-0 font-display text-base font-bold uppercase tracking-[0.08em] text-gold sm:text-lg sm:tracking-[0.12em]">
+        <a href="{{ route('home') }}" wire:navigate.hover class="shrink-0 font-display text-base font-bold uppercase tracking-[0.08em] text-gold sm:text-lg sm:tracking-[0.12em]">
             {{ config('app.name') }}
         </a>
 
         <x-sportsbook.product-nav class="ml-4" />
 
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-            <a href="{{ route('search') }}" wire:navigate class="hidden size-10 shrink-0 items-center justify-center rounded-full text-smoke hover:bg-ink-800 hover:text-ivory sm:flex" aria-label="{{ __('Search') }}">
+            <a href="{{ route('search') }}" wire:navigate.hover class="hidden size-10 shrink-0 items-center justify-center rounded-full text-smoke hover:bg-ink-800 hover:text-ivory sm:flex" aria-label="{{ __('Search') }}">
                 <flux:icon.magnifying-glass class="size-5" />
             </a>
             @auth
@@ -29,9 +29,9 @@
                     </button>
 
                     <flux:menu>
-                        <flux:menu.item :href="route('wallet')" icon="wallet" wire:navigate>{{ __('Wallet') }}</flux:menu.item>
-                        <flux:menu.item :href="route('my-bets')" icon="clipboard-document-list" wire:navigate>{{ __('My bets') }}</flux:menu.item>
-                        <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate>{{ __('Account settings') }}</flux:menu.item>
+                        <flux:menu.item :href="route('wallet')" icon="wallet" wire:navigate.hover>{{ __('Wallet') }}</flux:menu.item>
+                        <flux:menu.item :href="route('my-bets')" icon="clipboard-document-list" wire:navigate.hover>{{ __('My bets') }}</flux:menu.item>
+                        <flux:menu.item :href="route('profile.edit')" icon="cog-6-tooth" wire:navigate.hover>{{ __('Account settings') }}</flux:menu.item>
                         <flux:menu.separator />
                         <form method="POST" action="{{ route('logout') }}" class="w-full">
                             @csrf
