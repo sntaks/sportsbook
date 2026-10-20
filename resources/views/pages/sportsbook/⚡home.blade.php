@@ -5,11 +5,14 @@ use App\Sportsbook\Catalogue\FixtureListing;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 new #[Layout('layouts::sportsbook')] #[Title('Sports betting')] class extends Component {
+    private const BATCH = 20;
+
     #[Url(except: 'highlights')]
     public string $tab = 'highlights';
 
@@ -22,6 +25,10 @@ new #[Layout('layouts::sportsbook')] #[Title('Sports betting')] class extends Co
     #[Url(as: 'betslip', except: '')]
     public string $bookingCode = '';
 
+    /** How many matches of the list are shown: a first batch, then more as the player scrolls. */
+    #[Locked]
+    public int $shown = self::BATCH;
+
     public function mount(): void
     {
         $this->clampFilters();
@@ -32,9 +39,18 @@ new #[Layout('layouts::sportsbook')] #[Title('Sports betting')] class extends Co
         }
     }
 
-    public function updated(): void
+    public function updated(string $property): void
     {
         $this->clampFilters();
+
+        if (in_array($property, ['tab', 'marketKey'], true)) {
+            $this->shown = self::BATCH;
+        }
+    }
+
+    public function showMore(): void
+    {
+        $this->shown = min($this->shown + self::BATCH, $this->fixtures->count());
     }
 
     /**
@@ -82,12 +98,21 @@ new #[Layout('layouts::sportsbook')] #[Title('Sports betting')] class extends Co
     </div>
 
     <section wire:poll.300s class="overflow-hidden rounded-2xl border border-ink-700 bg-ink-900" aria-live="polite">
-        @forelse ($this->fixtures as $fixture)
+        @forelse ($this->fixtures->take($shown) as $fixture)
             <x-sportsbook.fixture-row :$fixture :market-key="$marketKey" />
         @empty
             <x-sportsbook.empty-state icon="trophy" :title="__('No matches to show')" class="rounded-none border-0">
                 {{ __('There are no matches open for betting in this list right now. Try another tab.') }}
             </x-sportsbook.empty-state>
         @endforelse
+
+        @if ($this->fixtures->count() > $shown)
+            <div x-intersect.margin.600px="$wire.showMore()" class="flex justify-center p-3" data-test="more-matches">
+                <button type="button" wire:click="showMore" class="rounded-full border border-ink-600 px-4 py-2 text-sm text-smoke hover:text-ivory">
+                    <span wire:loading.remove wire:target="showMore">{{ __('Show more matches') }}</span>
+                    <span wire:loading wire:target="showMore">{{ __('Loading…') }}</span>
+                </button>
+            </div>
+        @endif
     </section>
 </div>

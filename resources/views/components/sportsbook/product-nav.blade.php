@@ -16,7 +16,7 @@
     'scrollbar-none flex gap-2 overflow-x-auto border-t border-ink-700 px-4 py-2 xl:hidden' => $variant === 'mobile',
 ]) }}>
     @if ($variant === 'mobile')
-        <a href="{{ route('search') }}" wire:navigate class="flex shrink-0 items-center rounded-full border border-ink-600 px-3 py-1.5 text-smoke hover:text-ivory" aria-label="{{ __('Search') }}">
+        <a href="{{ route('search') }}" wire:navigate.hover class="flex shrink-0 items-center rounded-full border border-ink-600 px-3 py-1.5 text-smoke hover:text-ivory" aria-label="{{ __('Search') }}">
             <flux:icon.magnifying-glass variant="micro" class="size-4" />
         </a>
     @endif
@@ -26,7 +26,7 @@
 
         <a
             href="{{ route($product['route']) }}"
-            wire:navigate
+            wire:navigate.hover
             @if ($isCurrent) aria-current="page" @endif
             @class([
                 'flex shrink-0 items-center gap-1.5 rounded-full text-sm font-medium transition-colors',

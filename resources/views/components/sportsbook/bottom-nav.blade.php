@@ -4,11 +4,11 @@
 
 <nav aria-label="{{ __('Quick links') }}" class="fixed inset-x-0 bottom-0 z-30 border-t border-ink-700 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
     <div class="flex">
-        <a href="{{ route('home') }}" wire:navigate @class([$itemClasses, 'text-gold' => request()->routeIs('home'), 'text-smoke' => ! request()->routeIs('home')])>
+        <a href="{{ route('home') }}" wire:navigate.hover @class([$itemClasses, 'text-gold' => request()->routeIs('home'), 'text-smoke' => ! request()->routeIs('home')])>
             <flux:icon.home class="size-5" />
             {{ __('Home') }}
         </a>
-        <a href="{{ route('promotions') }}" wire:navigate @class([$itemClasses, 'text-gold' => request()->routeIs('promotions'), 'text-smoke' => ! request()->routeIs('promotions')])>
+        <a href="{{ route('promotions') }}" wire:navigate.hover @class([$itemClasses, 'text-gold' => request()->routeIs('promotions'), 'text-smoke' => ! request()->routeIs('promotions')])>
             <flux:icon.gift class="size-5" />
             {{ __('Promos') }}
         </a>
@@ -19,11 +19,11 @@
             </span>
             {{ __('Betslip') }}
         </button>
-        <a href="{{ route('my-bets') }}" wire:navigate @class([$itemClasses, 'text-gold' => request()->routeIs('my-bets'), 'text-smoke' => ! request()->routeIs('my-bets')])>
+        <a href="{{ route('my-bets') }}" wire:navigate.hover @class([$itemClasses, 'text-gold' => request()->routeIs('my-bets'), 'text-smoke' => ! request()->routeIs('my-bets')])>
             <flux:icon.clipboard-document-list class="size-5" />
             {{ __('My Bets') }}
         </a>
-        <a href="{{ auth()->check() ? route('wallet') : route('login') }}" wire:navigate @class([$itemClasses, 'text-gold' => request()->routeIs('wallet'), 'text-smoke' => ! request()->routeIs('wallet')])>
+        <a href="{{ auth()->check() ? route('wallet') : route('login') }}" wire:navigate.hover @class([$itemClasses, 'text-gold' => request()->routeIs('wallet'), 'text-smoke' => ! request()->routeIs('wallet')])>
             <flux:icon.user-circle class="size-5" />
             {{ __('Account') }}
         </a>

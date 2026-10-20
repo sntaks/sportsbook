@@ -13,7 +13,8 @@
     @if ($isBettable)
         aria-pressed="false"
         x-bind:aria-pressed="$store.betslip.has({{ $selection->id }}) ? 'true' : 'false'"
-        x-on:click="$store.betslip.toggle({{ $fixture->id }}, {{ $selection->id }}, '{{ $price }}')"
+        x-on:click="$store.betslip.toggle({{ $fixture->id }}, {{ $selection->id }}, '{{ $price }}', $pickLabels)"
+        data-pick-name="{{ $selection->name }}"
         aria-label="{{ $selection->name }} {{ $price }}"
         @if ($movement) data-movement="{{ $movement }}" @endif
     @else

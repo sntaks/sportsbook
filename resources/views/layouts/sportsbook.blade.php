@@ -27,6 +27,8 @@
 
         <x-sportsbook.bottom-nav />
 
+        <livewire:sportsbook.match-panel />
+
         @persist('toast')
             <flux:toast.group position="top end">
                 <flux:toast />

@@ -42,7 +42,7 @@
                     <li>
                         <a
                             href="{{ route('competitions.show', $competition['slug']) }}"
-                            wire:navigate
+                            wire:navigate.hover
                             x-on:click="sportsOpen = false"
                             @if ($isCurrent) aria-current="page" @endif
                             @class([

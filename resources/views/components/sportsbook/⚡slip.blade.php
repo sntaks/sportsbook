@@ -176,11 +176,6 @@ new class extends Component {
         unset($this->quote, $this->selectedFreeBet);
     }
 
-    public function setStake(int $amount): void
-    {
-        $this->stake = (string) $amount;
-    }
-
     public function acceptPriceChanges(): void
     {
         $this->dispatch('betslip-accept-prices', prices: $this->quote->changedPrices());
@@ -262,6 +257,14 @@ new class extends Component {
 
 <div
     class="flex h-full flex-col"
+    x-data="{
+        {{-- Picks the server has not checked yet, shown straight away from what the browser knows. --}}
+        pendingPicks() {
+            const checked = ($wire.picks ?? []).map((pick) => Number(pick.selection_id));
+
+            return $store.betslip.picks.filter((pick) => ! checked.includes(pick.selection_id));
+        },
+    }"
     x-init="if ($store.betslip.count() > 0) { $wire.syncPicks($store.betslip.picks) }"
     x-on:betslip-changed.window="$wire.syncPicks($event.detail.picks)"
     x-on:betslip-accept-prices.window="$store.betslip.acceptPrices($event.detail.prices)"
@@ -311,22 +314,22 @@ new class extends Component {
                 <button type="button" wire:click="newSlip" class="rounded-full bg-gold px-3 py-2 text-sm font-semibold text-ink-950 hover:bg-gold-bright">{{ __('New slip') }}</button>
             </div>
         </div>
-    @elseif (count($quote->lines) === 0)
-        <div class="px-4 py-8 text-center">
+    @else
+        <div x-show="$store.betslip.count() === 0" class="px-4 py-8 text-center">
             <flux:icon.ticket class="mx-auto mb-3 size-8 text-gold-dim" />
             <p class="font-medium text-ivory">{{ __('Your bet slip is empty') }}</p>
             <p class="mt-1 text-sm text-smoke">{{ __('Tap the odds on any match to add a selection.') }}</p>
         </div>
-    @else
-        <ul class="divide-y divide-ink-700">
+
+        <ul class="divide-y divide-ink-700" x-show="$store.betslip.count() > 0">
             @foreach ($quote->lines as $line)
                 @php $selection = $line['selection']; @endphp
-                <li wire:key="slip-{{ $selection->id }}" @class(['px-4 py-3', 'opacity-60' => $line['status'] === 'unavailable'])>
+                <li wire:key="slip-{{ $selection->id }}" x-show="$store.betslip.has({{ $selection->id }})" @class(['px-4 py-3', 'opacity-60' => $line['status'] === 'unavailable'])>
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-ivory">{{ $selection->name }}</p>
                             <p class="truncate text-xs text-smoke">{{ $selection->market->name() }}</p>
-                            <a href="{{ route('matches.show', $selection->market->fixture) }}" wire:navigate class="block truncate text-xs text-smoke hover:text-gold">{{ $selection->market->fixture->name() }}</a>
+                            <a href="{{ route('matches.show', $selection->market->fixture) }}" x-on:click="betSlipOpen = false; $openMatch($event, {{ $selection->market->fixture->id }}, @js($selection->market->fixture->name()))" class="block truncate text-xs text-smoke hover:text-gold">{{ $selection->market->fixture->name() }}</a>
                         </div>
                         <div class="flex shrink-0 items-start gap-1">
                             <div class="text-right">
@@ -349,160 +352,189 @@ new class extends Component {
                     @endif
                 </li>
             @endforeach
-        </ul>
-
-        <div class="space-y-3 border-t border-ink-700 px-4 py-3">
-            @if ($quote->hasUnavailable())
-                <button type="button" wire:click="removeUnavailable" class="w-full rounded-lg border border-ink-600 px-3 py-2 text-sm text-ivory hover:border-gold/40">
-                    {{ __('Remove closed selections') }}
-                </button>
-            @endif
-
-            @if ($quote->hasPriceChanges())
-                <div class="rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-ivory">
-                    <p>{{ __('Some odds have changed since you added them.') }}</p>
-                    <button type="button" wire:click="acceptPriceChanges" class="mt-2 w-full rounded-lg bg-gold px-3 py-2 font-semibold text-ink-950 hover:bg-gold-bright">
-                        {{ __('Accept odds changes') }}
-                    </button>
-                </div>
-            @endif
-
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-smoke">{{ trans_choice('{1} Single|[2,*] Multi (:count)', $quote->bettableCount(), ['count' => $quote->bettableCount()]) }}</span>
-                <span class="font-semibold tabular-nums text-ivory">{{ __('Odds') }} {{ number_format($quote->totalOdds, 2) }}</span>
-            </div>
-
-            @php $freeBet = $this->selectedFreeBet; @endphp
-            @if ($this->freeBets->isNotEmpty())
-                <label class="block">
-                    <span class="text-xs text-smoke">{{ __('Free bets') }}</span>
-                    <select wire:model.live="freeBetId" class="mt-1 min-h-10 w-full rounded-lg border border-gold/40 bg-ink-800 px-2 text-sm text-ivory" data-test="free-bet">
-                        <option value="">{{ __('Pay with cash') }}</option>
-                        @foreach ($this->freeBets as $option)
-                            <option value="{{ $option->id }}">{{ __(':amount free bet · odds :odds+ · until :date', ['amount' => Money::format($option->amount), 'odds' => $option->min_odds, 'date' => $option->expires_at->timezone(config('sportsbook.timezone'))->format('j M, H:i')]) }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @endif
-
-            @if ($freeBet)
-                <div class="rounded-lg border border-gold/30 bg-gold/10 p-3 text-xs text-ivory" data-test="free-bet-terms">
-                    <p>{{ __('Your :amount free bet is the stake. If it wins you get the winnings above the stake.', ['amount' => Money::format($freeBet->amount)]) }}</p>
-                    @if ($quote->bettableCount() > 0 && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100))
-                        <p class="mt-1 text-live">{{ __('This free bet needs total odds of at least :odds.', ['odds' => $freeBet->min_odds]) }}</p>
-                    @endif
-                </div>
-            @else
-                <label class="block">
-                    <span class="text-xs text-smoke">{{ __('Stake (KES)') }}</span>
-                    <input
-                        type="number"
-                        inputmode="numeric"
-                        step="1"
-                        min="{{ config('sportsbook.limits.min_stake') }}"
-                        max="{{ config('sportsbook.limits.max_stake') }}"
-                        wire:model.live.debounce.300ms="stake"
-                        class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 tabular-nums text-ivory focus:border-gold/50"
-                        placeholder="{{ config('sportsbook.limits.min_stake') }}"
-                    >
-                </label>
-                <div class="grid grid-cols-4 gap-1.5">
-                    @foreach ([50, 100, 500, 1000] as $amount)
-                        <button type="button" wire:click="setStake({{ $amount }})" class="min-h-9 rounded-md bg-ink-800 text-xs font-medium tabular-nums text-ivory hover:bg-ink-700">{{ number_format($amount) }}</button>
-                    @endforeach
-                </div>
-                @foreach ($quote->stakeErrors as $error)
-                    <p class="text-xs text-live">{{ $error }}</p>
-                @endforeach
-            @endif
-
-            @if ($quote->bonusPercent > 0)
-                <div class="flex items-baseline justify-between text-sm" data-test="multibet-bonus">
-                    <span class="text-smoke">{{ __('Multibet bonus +:percent%', ['percent' => $quote->bonusPercent]) }}</span>
-                    @if ($quote->stake !== null)
-                        <span class="tabular-nums text-ivory">KES {{ number_format($quote->bonus, 2) }}</span>
-                    @endif
-                </div>
-            @endif
-            @if ($quote->bettableCount() >= 2 && ($next = $quote->nextBonusTier()))
-                <p class="text-xs text-smoke" data-test="next-bonus">{{ trans_choice('{1} Add 1 more pick at odds :price+ for a :percent% bonus.|[2,*] Add :more more picks at odds :price+ for a :percent% bonus.', $next['more'], ['more' => $next['more'], 'price' => config('sportsbook.promotions.multibet_bonus.min_price'), 'percent' => $next['percent']]) }}</p>
-            @endif
-
-            <div class="flex items-baseline justify-between">
-                <span class="text-sm text-smoke">{{ __('Possible win (before tax)') }}</span>
-                <span class="font-display text-lg font-bold tabular-nums text-gold">KES {{ number_format($quote->possibleWin, 2) }}</span>
-            </div>
-            @if ($quote->isPayoutCapped)
-                <p class="text-xs text-smoke">{{ __('Payouts are capped at KES :amount.', ['amount' => number_format((float) config('sportsbook.limits.max_payout'))]) }}</p>
-            @endif
-
-            @auth
-                @if (! auth()->user()->canBet())
-                    <p class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" data-test="cannot-bet">
-                        {{ auth()->user()->isSuspended() ? __('Your account is suspended. Please contact support.') : __('Betting is paused while your break from betting runs.') }}
-                    </p>
-                @else
-                    <label class="block">
-                        <span class="sr-only">{{ __('Odds changes') }}</span>
-                        <select wire:model.live="oddsPolicy" class="min-h-9 w-full rounded-lg border border-ink-600 bg-ink-800 px-2 text-xs text-smoke" data-test="odds-policy">
-                            @foreach (OddsChangePolicy::cases() as $policy)
-                                <option value="{{ $policy->value }}">{{ $policy->label() }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-
-                    @error('bet')
-                        <div class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" role="alert" data-test="bet-error">
-                            <p>{{ $message }}</p>
-                            @if ($refusal === BetNotPlaced::INSUFFICIENT_FUNDS)
-                                <a href="{{ route('wallet') }}" wire:navigate class="mt-2 inline-block font-semibold text-gold hover:text-gold-bright">{{ __('Deposit now') }}</a>
-                            @endif
+            <template x-for="pick in pendingPicks()" :key="pick.selection_id">
+                <li class="px-4 py-3" data-test="slip-pending">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-medium text-ivory" x-text="pick.name || @js(__('Selection'))"></p>
+                            <p class="truncate text-xs text-smoke" x-text="pick.market"></p>
+                            <p class="truncate text-xs text-smoke" x-text="pick.match"></p>
                         </div>
-                    @enderror
-
-                    <button
-                        type="button"
-                        wire:click="placeBet"
-                        wire:loading.attr="disabled"
-                        wire:target="placeBet"
-                        @disabled($quote->bettableCount() === 0 || $quote->hasUnavailable() || $quote->stake === null || $quote->stakeErrors !== [] || ($freeBet && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100)))
-                        class="w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-smoke"
-                        data-test="place-bet"
-                    >
-                        <span wire:loading.remove wire:target="placeBet">{{ $freeBet ? __('Place free bet') : __('Place bet') }}</span>
-                        <span wire:loading wire:target="placeBet">{{ __('Placing…') }}</span>
-                    </button>
-                @endif
-            @else
-                <a href="{{ route('login') }}" class="block w-full rounded-full bg-gold px-4 py-3 text-center text-sm font-semibold text-ink-950 hover:bg-gold-bright">
-                    {{ __('Log in to bet') }}
-                </a>
-            @endauth
-
-            <div class="border-t border-ink-700 pt-3">
-                @if ($bookingCode)
-                    <div x-data="{ copied: false, link: @js(url('/?betslip='.$bookingCode)), text: @js(__('My bet slip: :code', ['code' => $bookingCode])) }">
-                        <p class="text-xs text-smoke">{{ __('Booking code') }}</p>
-                        <p class="font-display text-2xl font-bold tracking-[0.2em] text-gold">{{ $bookingCode }}</p>
-                        <div class="mt-2 grid grid-cols-4 gap-1.5 text-xs">
-                            <a target="_blank" rel="noopener" :href="'https://wa.me/?text=' + encodeURIComponent(text + ' ' + link)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">WhatsApp</a>
-                            <a target="_blank" rel="noopener" :href="'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">Telegram</a>
-                            <a :href="'sms:?&body=' + encodeURIComponent(text + ' ' + link)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">SMS</a>
-                            <button type="button" x-on:click="navigator.share ? navigator.share({ text, url: link }) : (navigator.clipboard.writeText(link), copied = true)" class="min-h-9 rounded-md bg-ink-800 py-2 text-ivory hover:bg-ink-700">
-                                <span x-text="copied ? @js(__('Copied')) : @js(__('Share'))">{{ __('Share') }}</span>
+                        <div class="flex shrink-0 items-start gap-1">
+                            <span class="text-sm font-semibold tabular-nums text-ivory" x-text="pick.price"></span>
+                            <button type="button" x-on:click="$store.betslip.remove(pick.selection_id)" class="flex size-8 items-center justify-center rounded-md text-smoke hover:text-live" :aria-label="@js(__('Remove')) + ' ' + (pick.name || '')">
+                                <flux:icon.x-mark variant="micro" class="size-4" />
                             </button>
                         </div>
                     </div>
-                @else
-                    <button type="button" wire:click="createBookingCode" class="w-full rounded-lg border border-ink-600 px-3 py-2 text-sm text-ivory hover:border-gold/40">
-                        {{ __('Get booking code') }}
+                </li>
+            </template>
+        </ul>
+
+        @if (count($quote->lines) === 0)
+            {{-- Until the server has checked the first picks: the odds as the player saw them. --}}
+            <div x-show="$store.betslip.count() > 0" class="space-y-3 border-t border-ink-700 px-4 py-3" data-test="slip-checking">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-smoke">{{ __('Checking odds…') }}</span>
+                    <span class="font-semibold tabular-nums text-ivory">{{ __('Odds') }} <span x-text="$store.betslip.seenOdds()"></span></span>
+                </div>
+                <div class="h-11 animate-pulse rounded-lg bg-ink-800"></div>
+                <div class="h-12 animate-pulse rounded-full bg-ink-800"></div>
+            </div>
+        @else
+            <div x-show="$store.betslip.count() > 0" wire:loading.class="pointer-events-none opacity-60" wire:target="syncPicks" class="space-y-3 border-t border-ink-700 px-4 py-3 transition-opacity">
+                @if ($quote->hasUnavailable())
+                    <button type="button" wire:click="removeUnavailable" class="w-full rounded-lg border border-ink-600 px-3 py-2 text-sm text-ivory hover:border-gold/40">
+                        {{ __('Remove closed selections') }}
                     </button>
                 @endif
-                @error('booking')
-                    <p class="mt-1 text-xs text-live">{{ $message }}</p>
-                @enderror
+
+                @if ($quote->hasPriceChanges())
+                    <div class="rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-ivory">
+                        <p>{{ __('Some odds have changed since you added them.') }}</p>
+                        <button type="button" wire:click="acceptPriceChanges" class="mt-2 w-full rounded-lg bg-gold px-3 py-2 font-semibold text-ink-950 hover:bg-gold-bright">
+                            {{ __('Accept odds changes') }}
+                        </button>
+                    </div>
+                @endif
+
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-smoke">{{ trans_choice('{1} Single|[2,*] Multi (:count)', $quote->bettableCount(), ['count' => $quote->bettableCount()]) }}</span>
+                    <span class="font-semibold tabular-nums text-ivory">{{ __('Odds') }} {{ number_format($quote->totalOdds, 2) }}</span>
+                </div>
+
+                @php $freeBet = $this->selectedFreeBet; @endphp
+                @if ($this->freeBets->isNotEmpty())
+                    <label class="block">
+                        <span class="text-xs text-smoke">{{ __('Free bets') }}</span>
+                        <select wire:model.live="freeBetId" class="mt-1 min-h-10 w-full rounded-lg border border-gold/40 bg-ink-800 px-2 text-sm text-ivory" data-test="free-bet">
+                            <option value="">{{ __('Pay with cash') }}</option>
+                            @foreach ($this->freeBets as $option)
+                                <option value="{{ $option->id }}">{{ __(':amount free bet · odds :odds+ · until :date', ['amount' => Money::format($option->amount), 'odds' => $option->min_odds, 'date' => $option->expires_at->timezone(config('sportsbook.timezone'))->format('j M, H:i')]) }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                @endif
+
+                @if ($freeBet)
+                    <div class="rounded-lg border border-gold/30 bg-gold/10 p-3 text-xs text-ivory" data-test="free-bet-terms">
+                        <p>{{ __('Your :amount free bet is the stake. If it wins you get the winnings above the stake.', ['amount' => Money::format($freeBet->amount)]) }}</p>
+                        @if ($quote->bettableCount() > 0 && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100))
+                            <p class="mt-1 text-live">{{ __('This free bet needs total odds of at least :odds.', ['odds' => $freeBet->min_odds]) }}</p>
+                        @endif
+                    </div>
+                @else
+                    <label class="block">
+                        <span class="text-xs text-smoke">{{ __('Stake (KES)') }}</span>
+                        <input
+                            type="number"
+                            inputmode="numeric"
+                            step="1"
+                            min="{{ config('sportsbook.limits.min_stake') }}"
+                            max="{{ config('sportsbook.limits.max_stake') }}"
+                            wire:model.live.debounce.300ms="stake"
+                            class="mt-1 min-h-11 w-full rounded-lg border border-ink-600 bg-ink-800 px-3 tabular-nums text-ivory focus:border-gold/50"
+                            placeholder="{{ config('sportsbook.limits.min_stake') }}"
+                        >
+                    </label>
+                    <div class="grid grid-cols-4 gap-1.5">
+                        @foreach ([50, 100, 500, 1000] as $amount)
+                            <button type="button" x-on:click="$wire.$set('stake', '{{ $amount }}')" class="min-h-9 rounded-md bg-ink-800 text-xs font-medium tabular-nums text-ivory hover:bg-ink-700">{{ number_format($amount) }}</button>
+                        @endforeach
+                    </div>
+                    @foreach ($quote->stakeErrors as $error)
+                        <p class="text-xs text-live">{{ $error }}</p>
+                    @endforeach
+                @endif
+
+                @if ($quote->bonusPercent > 0)
+                    <div class="flex items-baseline justify-between text-sm" data-test="multibet-bonus">
+                        <span class="text-smoke">{{ __('Multibet bonus +:percent%', ['percent' => $quote->bonusPercent]) }}</span>
+                        @if ($quote->stake !== null)
+                            <span class="tabular-nums text-ivory">KES {{ number_format($quote->bonus, 2) }}</span>
+                        @endif
+                    </div>
+                @endif
+                @if ($quote->bettableCount() >= 2 && ($next = $quote->nextBonusTier()))
+                    <p class="text-xs text-smoke" data-test="next-bonus">{{ trans_choice('{1} Add 1 more pick at odds :price+ for a :percent% bonus.|[2,*] Add :more more picks at odds :price+ for a :percent% bonus.', $next['more'], ['more' => $next['more'], 'price' => config('sportsbook.promotions.multibet_bonus.min_price'), 'percent' => $next['percent']]) }}</p>
+                @endif
+
+                <div class="flex items-baseline justify-between">
+                    <span class="text-sm text-smoke">{{ __('Possible win (before tax)') }}</span>
+                    <span class="font-display text-lg font-bold tabular-nums text-gold">KES {{ number_format($quote->possibleWin, 2) }}</span>
+                </div>
+                @if ($quote->isPayoutCapped)
+                    <p class="text-xs text-smoke">{{ __('Payouts are capped at KES :amount.', ['amount' => number_format((float) config('sportsbook.limits.max_payout'))]) }}</p>
+                @endif
+
+                @auth
+                    @if (! auth()->user()->canBet())
+                        <p class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" data-test="cannot-bet">
+                            {{ auth()->user()->isSuspended() ? __('Your account is suspended. Please contact support.') : __('Betting is paused while your break from betting runs.') }}
+                        </p>
+                    @else
+                        <label class="block">
+                            <span class="sr-only">{{ __('Odds changes') }}</span>
+                            <select wire:model.live="oddsPolicy" class="min-h-9 w-full rounded-lg border border-ink-600 bg-ink-800 px-2 text-xs text-smoke" data-test="odds-policy">
+                                @foreach (OddsChangePolicy::cases() as $policy)
+                                    <option value="{{ $policy->value }}">{{ $policy->label() }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        @error('bet')
+                            <div class="rounded-lg border border-live/40 bg-live/10 p-3 text-xs text-ivory" role="alert" data-test="bet-error">
+                                <p>{{ $message }}</p>
+                                @if ($refusal === BetNotPlaced::INSUFFICIENT_FUNDS)
+                                    <a href="{{ route('wallet') }}" wire:navigate class="mt-2 inline-block font-semibold text-gold hover:text-gold-bright">{{ __('Deposit now') }}</a>
+                                @endif
+                            </div>
+                        @enderror
+
+                        <button
+                            type="button"
+                            wire:click="placeBet"
+                            wire:loading.attr="disabled"
+                            wire:target="placeBet"
+                            @disabled($quote->bettableCount() === 0 || $quote->hasUnavailable() || $quote->stake === null || $quote->stakeErrors !== [] || ($freeBet && round($quote->totalOdds * 100) < round((float) $freeBet->min_odds * 100)))
+                            class="w-full rounded-full bg-gold px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-gold-bright disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-smoke"
+                            data-test="place-bet"
+                        >
+                            <span wire:loading.remove wire:target="placeBet">{{ $freeBet ? __('Place free bet') : __('Place bet') }}</span>
+                            <span wire:loading wire:target="placeBet">{{ __('Placing…') }}</span>
+                        </button>
+                    @endif
+                @else
+                    <a href="{{ route('login') }}" class="block w-full rounded-full bg-gold px-4 py-3 text-center text-sm font-semibold text-ink-950 hover:bg-gold-bright">
+                        {{ __('Log in to bet') }}
+                    </a>
+                @endauth
+
+                <div class="border-t border-ink-700 pt-3">
+                    @if ($bookingCode)
+                        <div x-data="{ copied: false, link: @js(url('/?betslip='.$bookingCode)), text: @js(__('My bet slip: :code', ['code' => $bookingCode])) }">
+                            <p class="text-xs text-smoke">{{ __('Booking code') }}</p>
+                            <p class="font-display text-2xl font-bold tracking-[0.2em] text-gold">{{ $bookingCode }}</p>
+                            <div class="mt-2 grid grid-cols-4 gap-1.5 text-xs">
+                                <a target="_blank" rel="noopener" :href="'https://wa.me/?text=' + encodeURIComponent(text + ' ' + link)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">WhatsApp</a>
+                                <a target="_blank" rel="noopener" :href="'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">Telegram</a>
+                                <a :href="'sms:?&body=' + encodeURIComponent(text + ' ' + link)" class="min-h-9 rounded-md bg-ink-800 py-2 text-center text-ivory hover:bg-ink-700">SMS</a>
+                                <button type="button" x-on:click="navigator.share ? navigator.share({ text, url: link }) : (navigator.clipboard.writeText(link), copied = true)" class="min-h-9 rounded-md bg-ink-800 py-2 text-ivory hover:bg-ink-700">
+                                    <span x-text="copied ? @js(__('Copied')) : @js(__('Share'))">{{ __('Share') }}</span>
+                                </button>
+                            </div>
+                        </div>
+                    @else
+                        <button type="button" wire:click="createBookingCode" class="w-full rounded-lg border border-ink-600 px-3 py-2 text-sm text-ivory hover:border-gold/40">
+                            {{ __('Get booking code') }}
+                        </button>
+                    @endif
+                    @error('booking')
+                        <p class="mt-1 text-xs text-live">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
-        </div>
+        @endif
     @endif
 
     <form wire:submit="loadBookingCode" class="mt-auto border-t border-ink-700 px-4 py-3">
