@@ -186,6 +186,35 @@ test('a range is put the right way round, never runs past today and keeps at mos
         ->and($reversed->start()->toDateTimeString())->toBe('2026-09-30 21:00:00');
 });
 
+test('the period before a run to today stops at the same time of day; an earlier run is compared in whole days', function () {
+    $today = Period::lastDays(1)->previous();
+    $week = Period::between('2026-10-01', '2026-10-07')->previous();
+
+    expect([$today->firstDay->toDateString(), $today->lastDay->toDateString()])->toBe(['2026-10-14', '2026-10-14'])
+        ->and($today->end()->toDateTimeString())->toBe('2026-10-14 09:00:00')
+        ->and([$week->firstDay->toDateString(), $week->lastDay->toDateString()])->toBe(['2026-09-24', '2026-09-30'])
+        ->and($week->end()->toDateTimeString())->toBe('2026-09-30 21:00:00');
+});
+
+test('daily figures count each day\'s players once, with its sign-ups and money', function () {
+    $this->travelTo(now()->timezone('Africa/Nairobi')->setDate(2026, 10, 14)->setTime(10, 0));
+    $regular = bettor();
+    betOn($regular, [[pricedFixture(), 'home']], '30');
+    betOn($regular, [[pricedFixture(), 'home']], '20');
+    betOn(bettor(), [[pricedFixture(), 'home']], '50');
+    $this->travelTo(now()->timezone('Africa/Nairobi')->setDate(2026, 10, 15)->setTime(9, 0));
+    betOn($regular, [[pricedFixture(), 'home']], '40');
+    User::factory()->create();
+
+    $days = collect(app(Reports::class)->dailyFigures(Period::between('2026-10-14', '2026-10-15')))
+        ->map(fn (array $day): array => [$day['date'], $day['turnover'], $day['active_players'], $day['sign_ups']]);
+
+    expect($days->all())->toBe([
+        ['2026-10-15', 4_000, 1, 1],
+        ['2026-10-14', 10_000, 2, 2],
+    ]);
+});
+
 test('reports read through the reports connection when one is set', function () {
     config([
         'database.connections.reports' => [...config('database.connections.sqlite'), 'database' => ':memory:', 'foreign_key_constraints' => false],

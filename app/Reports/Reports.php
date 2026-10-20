@@ -116,6 +116,38 @@ class Reports
     }
 
     /**
+     * The dashboard's figures for each day of the period, newest first, for its trend lines.
+     *
+     * @return list<array{date: string, turnover: int, ggr: int, ngr: int, promotion_costs: int, hold: ?float, deposits: int, withdrawals: int, active_players: int, sign_ups: int}>
+     */
+    public function dailyFigures(Period $period): array
+    {
+        $activePlayers = $this->activePlayersByDay($period);
+        $day = $this->dayExpression('created_at', $period);
+        $signUps = $this->range($this->db()->table('users'), 'created_at', $period)
+            ->selectRaw("{$day} as day, count(*) as total")
+            ->groupByRaw($day)
+            ->pluck('total', 'day');
+
+        return array_map(
+            fn (array $figures): array => [
+                ...$figures,
+                'active_players' => (int) ($activePlayers[$figures['date']] ?? 0),
+                'sign_ups' => (int) ($signUps[$figures['date']] ?? 0),
+            ],
+            $this->eachDay($period, fn (array $figures): array => [
+                'turnover' => $figures['stakes'] + $figures['jackpot_entries'],
+                'ggr' => $figures['sportsbook_ggr'] + $figures['jackpot_ggr'],
+                'ngr' => $figures['ngr'],
+                'promotion_costs' => $figures['promotion_costs'],
+                'hold' => $figures['hold'],
+                'deposits' => $figures['deposits'],
+                'withdrawals' => $figures['withdrawals'],
+            ]),
+        );
+    }
+
+    /**
      * Money deposited and withdrawn each day, newest first. Withdrawals are what left wallets, less any returned.
      *
      * @return list<array{date: string, deposits: int, withdrawals: int, net: int}>
@@ -406,6 +438,27 @@ class Reports
         $entrants = $this->range($this->db()->table('jackpot_entries'), 'placed_at', $period)->select('user_id');
 
         return $this->db()->query()->fromSub($bettors->union($entrants), 'players')->count();
+    }
+
+    /**
+     * Players who placed a bet or entered a jackpot, counted per EAT day.
+     *
+     * @return array<string, int>
+     */
+    private function activePlayersByDay(Period $period): array
+    {
+        $bettors = $this->range($this->db()->table('bets'), 'placed_at', $period)
+            ->selectRaw($this->dayExpression('placed_at', $period).' as day, user_id');
+        $entrants = $this->range($this->db()->table('jackpot_entries'), 'placed_at', $period)
+            ->selectRaw($this->dayExpression('placed_at', $period).' as day, user_id');
+
+        return $this->db()->query()
+            ->fromSub($bettors->union($entrants), 'players')
+            ->selectRaw('day, count(distinct user_id) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day')
+            ->map(fn (mixed $total): int => (int) $total)
+            ->all();
     }
 
     private function range(Builder $query, string $column, Period $period): Builder

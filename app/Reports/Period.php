@@ -8,11 +8,15 @@ use Throwable;
 
 /**
  * A run of whole EAT calendar days, first to last inclusive, never past today. Reports query it as the UTC instants
- * from the start of the first day to the start of the day after the last.
+ * from the start of the first day to the start of the day after the last, or to an earlier cut-off when one is set.
  */
 final readonly class Period
 {
-    private function __construct(public CarbonImmutable $firstDay, public CarbonImmutable $lastDay) {}
+    private function __construct(
+        public CarbonImmutable $firstDay,
+        public CarbonImmutable $lastDay,
+        public ?CarbonImmutable $cutOff = null,
+    ) {}
 
     /**
      * The given number of days, ending today.
@@ -45,6 +49,18 @@ final readonly class Period
         return new self($first, $last);
     }
 
+    /**
+     * The same number of days just before this period. When this period runs to today, the earlier one stops at the
+     * same time of day, so a day still under way is compared with the same hours of the day before it.
+     */
+    public function previous(): self
+    {
+        $days = $this->dayCount();
+        $cutOff = $this->lastDay->equalTo(self::today()) ? Date::now()->toImmutable()->subDays($days) : null;
+
+        return new self($this->firstDay->subDays($days), $this->lastDay->subDays($days), $cutOff);
+    }
+
     public function start(): CarbonImmutable
     {
         return $this->firstDay->setTimezone('UTC');
@@ -52,7 +68,9 @@ final readonly class Period
 
     public function end(): CarbonImmutable
     {
-        return $this->lastDay->addDay()->setTimezone('UTC');
+        $end = $this->lastDay->addDay()->setTimezone('UTC');
+
+        return $this->cutOff === null ? $end : $end->min($this->cutOff->setTimezone('UTC'));
     }
 
     public function dayCount(): int
