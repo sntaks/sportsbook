@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AdminRole;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Reports;
 use App\Filament\Pages\Reports\PeriodSummary;
 use App\Filament\Pages\Reports\RevenueByDay;
@@ -83,15 +84,33 @@ test('turnover, top players and tax widgets render their rows, linking players t
     Livewire::test(TaxByMonth::class, ['pageFilters' => $filters])->assertSee('October 2026');
 });
 
-test('the dashboard shows key figures for today, 7 days and 30 days, and the 30-day chart', function () {
+test('the dashboard key figures show the chosen period and how it moved against the period before', function () {
     $this->actingAs(Admin::factory()->withRole(AdminRole::Finance)->create(), 'admin');
+    $at = fn (int $day, int $hour) => $this->travelTo(now()->timezone('Africa/Nairobi')->setDate(2026, 10, $day)->setTime($hour, 0));
+    $at(14, 10);
+    betOn(bettor(), [[pricedFixture(), 'home']], '20');
+    $at(14, 15);
+    betOn(bettor(), [[pricedFixture(), 'home']], '80');
+    $at(15, 12);
     betOn(bettor(), [[pricedFixture(), 'home']], '40');
-    $this->travel(-3)->days();
-    betOn(bettor(), [[pricedFixture(), 'home']], '60');
-    $this->travel(3)->days();
 
-    Livewire::test(KeyFigures::class)
-        ->assertSeeInOrder(['Turnover', 'KES 40.00', 'KES 100.00', 'KES 100.00', 'GGR']);
+    Livewire::test(KeyFigures::class, ['pageFilters' => ['period' => 'today']])
+        ->assertSeeInOrder(['Turnover', 'KES 40.00', '+100.0% vs the same time yesterday'])
+        ->assertSeeInOrder(['New sign-ups', '1', 'No change vs the same time yesterday']);
+
+    Livewire::test(KeyFigures::class, ['pageFilters' => ['period' => '7']])
+        ->assertSeeInOrder(['Turnover', 'KES 140.00', 'Up from 0 vs the 7 days before']);
+
+    Livewire::test(KeyFigures::class, ['pageFilters' => ['period' => 'not-a-period']])
+        ->assertSee('vs the same time yesterday');
 
     Livewire::test(TurnoverChart::class)->assertOk();
+});
+
+test('the dashboard period switch is shown only to staff who see the key figures', function () {
+    $this->actingAs(Admin::factory()->withAppAuthentication()->withRole(AdminRole::Finance)->create(), 'admin');
+    $this->get(Dashboard::getUrl())->assertOk()->assertSee('Last 7 days');
+
+    $this->actingAs(Admin::factory()->withAppAuthentication()->withRole(AdminRole::Trader)->create(), 'admin');
+    $this->get(Dashboard::getUrl())->assertOk()->assertDontSee('Last 7 days');
 });
